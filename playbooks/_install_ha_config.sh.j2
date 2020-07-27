@@ -1,0 +1,359 @@
+
+#  Do the following on OCI Console/CLI, etc before running this script. 
+#  Create Dynamic Group
+#  nfs_ha - DG for creating HA Active-Passive node pairs
+#  ANY {instance.compartment.id =  'ocid1.compartment.oc1..aaaaaaaawiovn4frspcslaqkf4glwndsvf4obwjdunsf5paj4qv6f4opls7a'}
+#  Create policies
+#  Allow dynamic-group nfs_ha to use private-ips in compartment pinkesh
+#  Allow dynamic-group nfs_ha to use vnics in compartment pinkesh
+
+
+
+SSH_OPTIONS=" -i /home/opc/.ssh/id_rsa -o BatchMode=yes -o StrictHostkeyChecking=no "
+MDATA_VNIC_URL="http://169.254.169.254/opc/v1/vnics/"
+pcs_cfg="nfs_cfg"
+lv_name="{{ lv_name }}"
+vg_name="{{ vg_name }}"
+ipaddr2_vip_name="{{ ipaddr2_vip_name }}"
+service_name="nfs-daemon"
+filesystem_name="nfsshare"
+filesystem_type="xfs"
+filesystem_device="/dev/{{ vg_name }}/{{ lv_name }}"
+filesystem_dir="/mnt/nfsshare"
+
+group_name="nfsgroup"
+pcs_group_parameter=" --group ${group_name}"
+
+#exportfs_client_spec_1_cidr_block="10.0.3.0/24"
+#exportfs_client_spec_2_cidr_block="10.0.0.0/24"
+
+
+exportfs_client_spec_1_cidr_block="{{ private_storage_subnet_cidr_block }}"
+exportfs_client_spec_2_cidr_block="{{ public_subnet_cidr_block }}"
+exportfs_client_spec_1_netmask=`ipcalc -m  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
+exportfs_client_spec_1_network=`ipcalc -n  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
+exportfs_client_spec_2_netmask=`ipcalc -m  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
+exportfs_client_spec_2_network=`ipcalc -n  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
+exportfs_client_spec_1="${exportfs_client_spec_1_network}/${exportfs_client_spec_1_netmask}"
+exportfs_client_spec_2="${exportfs_client_spec_2_network}/${exportfs_client_spec_2_netmask}"
+options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
+nfs_root_dir="${filesystem_dir}/exports"
+nfs_export1_dir="${nfs_root_dir}/export1"
+
+
+
+ha_config_dir="/home/opc/ha_config"
+
+# {{ storage_vip_private_ip }}
+
+
+
+
+function configure_vip_move {
+
+  # use Instance Principal for auth
+  # Configuring OCI-CLI
+  mkdir /home/oracle-cli/
+  chown root: /home/oracle-cli/
+  chmod 755 /home/oracle-cli/
+  wget https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+  bash install.sh --accept-all-defaults --exec-dir /home/oracle-cli/bin/ --install-dir /home/oracle-cli/lib/
+  rm -f install.sh
+  rm -rf /root/bin/oci-cli-scripts
+  mkdir /home/oracle-cli/.oci
+  chown hacluster:haclient /home/oracle-cli/.oci
+  chmod 700 /home/oracle-cli/.oci
+  /home/oracle-cli/bin/oci os ns get --auth instance_principal
+
+  cp ${ha_config_dir}/move_secip.sh /home/oracle-cli/move_secip.sh
+  chmod +x /home/oracle-cli/move_secip.sh
+  chmod 700 /home/oracle-cli/move_secip.sh
+  chown hacluster:haclient /home/oracle-cli/move_secip.sh
+  cp -f /root/env_variables.sh /home/oracle-cli/
+  chown hacluster:haclient /home/oracle-cli/env_variables.sh
+
+  cp ${ha_config_dir}/ip_move.sh   /var/lib/pacemaker/ip_move.sh
+  chown root: /var/lib/pacemaker/ip_move.sh
+  chmod 0755 /var/lib/pacemaker/ip_move.sh
+  sed -i "s|IPADDR2_VIP_NAME|${IPADDR2_VIP_NAME}|g" /var/lib/pacemaker/ip_move.sh
+  touch /var/log/pacemaker_ip_move.log
+  chown hacluster:haclient /var/log/pacemaker_ip_move.log
+
+}
+
+
+  echo "Entering Shared Disk HA Script"
+
+  #Deploy components to implement HA for Storage Service
+
+  LOCAL_NODE=`hostname`;
+  LOCAL_NODE_IP=`nslookup $LOCAL_NODE | grep "Address: " | grep -v "#" | gawk '{print $2}'` ;
+  NODE1="{{ storage_server_hostname_prefix }}1" ;
+  NODE2="{{ storage_server_hostname_prefix }}2" ;
+  NODE1_IP=`nslookup $NODE1 | grep "Address: " | grep -v "#" | gawk '{print $2}'` ;
+  NODE2_IP=`nslookup $NODE2 | grep "Address: " | grep -v "#" | gawk '{print $2}'` ;
+  NODE1_FQDN="{{ storage_server_hostname_prefix }}1.{{ storage_subnet_domain_name }}" ;
+  NODE2_FQDN="{{ storage_server_hostname_prefix }}2.{{ storage_subnet_domain_name }}" ;
+  echo "$NODE1_IP $NODE1_FQDN $NODE1" >> /etc/hosts
+  echo "$NODE2_IP $NODE2_FQDN $NODE2" >> /etc/hosts
+  # VIRTUAL IP
+  TARGET_VIP={{ storage_vip_private_ip }}
+
+
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+
+    node1vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
+
+    ssh ${SSH_OPTIONS}  opc@${NODE2_IP} "ls -l /home/opc/.ssh/id_rsa"
+    while [ $? -ne 0 ]
+    do
+      echo "wait for TF scripts to copy ssh keys..."
+      sleep 5s
+      ssh ${SSH_OPTIONS}  opc@${NODE2_IP} "ls -l /home/opc/.ssh/id_rsa"
+    done
+
+    node2vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE2_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
+    node2vnic=`echo $node2vnic_w_quotes |  sed 's/"//g' ` ;
+  else
+    # SWAP logic, since its node2 here.
+    node2vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
+
+    ssh ${SSH_OPTIONS}  opc@${NODE1_IP} "ls -l /home/opc/.ssh/id_rsa"
+    while [ $? -ne 0 ]
+    do
+      echo "wait for TF scripts to copy ssh keys..."
+      sleep 5s
+      ssh ${SSH_OPTIONS}  opc@${NODE1_IP} "ls -l /home/opc/.ssh/id_rsa"
+    done
+
+    node1vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE1_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
+    node1vnic=`echo $node1vnic_w_quotes |  sed 's/"//g' ` ;
+  fi
+  subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[0].subnetCidrBlock  ' | sed 's/"//g' ` ;
+  cidr_netmask=`echo $subnetCidrBlock | gawk -F"/" '{ print $2 }'` ;
+
+
+  echo "
+  LOCAL_NODE=\"${LOCAL_NODE}\"
+  LOCAL_NODE_IP=\"${LOCAL_NODE_IP}\"
+  NODE1=\"${NODE1}\"
+  NODE2=\"${NODE2}\"
+  NODE1_IP=\"${NODE1_IP}\"
+  NODE2_IP=\"${NODE2_IP}\"
+  NODE1_FQDN=\"${NODE1_FQDN}\"
+  NODE2_FQDN=\"${NODE2_FQDN}\"
+  TARGET_VIP=\"${TARGET_VIP}\"
+  node1vnic=\"${node1vnic}\"
+  node2vnic=\"${node2vnic}\"
+  " > /root/env_variables.sh
+  echo "source /root/env_variables.sh" >>  /root/.bash_profile
+
+
+
+  # Set password for hacluster user on both nodes
+  echo -e "{{ hacluster_user_password }}\n{{ hacluster_user_password }}" | passwd hacluster
+  if [ $? -ne 0 ]; then
+    echo "Setting password value of {{ hacluster_user_password }} for hacluster failed"
+    exit 1;
+  fi
+
+
+  # copy ssh private key to both oss nodes.
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+    corosync-keygen -l
+    cp -av /etc/corosync/authkey /home/opc/authkey
+    chown opc: /home/opc/authkey
+
+    scp ${SSH_OPTIONS}  -p -3 /home/opc/authkey opc@${NODE2_IP}:/home/opc/authkey
+
+    ssh ${SSH_OPTIONS}  opc@${NODE2_IP} "sudo mv /home/opc/authkey /etc/corosync/authkey"
+    while [ $? -ne 0 ]
+    do
+      echo "sleeping for 20s, so NODE2 can finish deploying corosync and create directories....."
+      sleep 20s
+      ssh ${SSH_OPTIONS} opc@${NODE2_IP} "sudo mv /home/opc/authkey /etc/corosync/authkey"
+    done
+    ssh ${SSH_OPTIONS} opc@${NODE2_IP} "sudo chown root: /etc/corosync/authkey"
+    rm -f /home/opc/authkey
+  fi
+
+  cp ${ha_config_dir}/corosync.conf /etc/corosync/
+  chown root: /etc/corosync/corosync.conf
+  sed -i "s/LOCAL_NODE_IP/${LOCAL_NODE_IP}/" /etc/corosync/corosync.conf
+  sed -i "s/NODE1/${NODE1}/" /etc/corosync/corosync.conf
+  sed -i "s/NODE2/${NODE2}/" /etc/corosync/corosync.conf
+
+  mkdir /etc/corosync/service.d/
+  cp -f ${ha_config_dir}/pcmk /etc/corosync/service.d/pcmk
+  chown root: /etc/corosync/service.d/pcmk
+
+  mv -vn /etc/sysconfig/corosync /etc/sysconfig/corosync.orig
+  cp -f ${ha_config_dir}/corosync  /etc/sysconfig/corosync
+  chown root: /etc/sysconfig/corosync
+
+  mkdir /var/log/corosync/
+  # Primary reason for this while loop, is to ensure node2 get the authkey file from node1. Until then, Node2 should not start corosync service.
+  if [ "$LOCAL_NODE" = "$NODE2" ]; then
+    while ( ! [ -f /etc/corosync/authkey ] )
+    do
+      echo "wait for /etc/corosync/authkey to get transfer from node1"
+      sleep 5s
+    done
+  fi
+
+  systemctl start corosync
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+    ssh ${SSH_OPTIONS} opc@${NODE2_IP}  'sudo systemctl status  corosync  | grep "(running)" ' ;
+    while ( [ $? -ne 0 ] )
+    do
+      echo "waiting for corosync to come online on node2"
+      sleep 10
+      ssh ${SSH_OPTIONS} opc@${NODE2_IP}  'sudo systemctl status  corosync  | grep "(running)" ' ;
+    done
+  fi
+
+  corosync-cmapctl | grep members
+
+
+  # Configuring PCSD
+  systemctl start pcsd.service
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+    ssh ${SSH_OPTIONS} opc@${NODE2_IP}  'sudo systemctl status  pcsd  | grep "(running)" ' ;
+    while ( [ $? -ne 0 ] )
+    do
+      echo "waiting for pcsd.service to come online on node2"
+      sleep 10
+      ssh ${SSH_OPTIONS} opc@${NODE2_IP}  'sudo systemctl status  pcsd  | grep "(running)" ' ;
+    done
+  fi
+
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+    echo "{{ hacluster_user_password }}" | pcs cluster auth --name nfs_cluster ${NODE1} ${NODE2} -u hacluster
+  fi
+
+  # call function
+  configure_vip_move
+
+
+
+
+  systemctl enable pcsd;
+  systemctl enable pacemaker;
+  systemctl enable corosync;
+
+  cd /root;
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+
+
+    pcs cluster start --all
+    sleep 10s
+    pcs status
+    pcs cluster cib /root/${pcs_cfg}
+    pcs -f /root/${pcs_cfg} property set stonith-enabled=false
+    # In 2 nodes, there is no quorum. hence no-quorum-policy=ignore  instead of no-quorum-policy=stop
+    pcs -f /root/${pcs_cfg} property set no-quorum-policy=ignore
+    pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=200
+    pcs -f /root/${pcs_cfg} resource defaults migration-threshold=1
+
+    pcs -f /root/${pcs_cfg} resource create $lv_name ocf:heartbeat:LVM-activate vgname=$vg_name vg_access_mode=system_id $pcs_group_parameter
+
+    pcs -f /root/${pcs_cfg} resource create ${filesystem_name} Filesystem \
+    device="${filesystem_device}" \
+    directory="${filesystem_dir}" \
+    fstype="${filesystem_type}" \
+    options="noatime,inode64,nobarrier" \
+    $pcs_group_parameter
+
+    pcs -f /root/${pcs_cfg} resource create ${service_name}  nfsserver \
+    nfs_shared_infodir=${filesystem_dir}/nfsinfo nfs_no_notify=true \
+    $pcs_group_parameter
+
+pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_1 exportfs \
+--after nfs-daemon \
+clientspec=${exportfs_client_spec_1} \
+options=${options} \
+directory=${nfs_root_dir} \
+fsid=0  $pcs_group_parameter
+
+
+pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_2 exportfs \
+--after nfs-root_client_spec_1 \
+clientspec=${exportfs_client_spec_2} \
+options=${options} \
+directory=${nfs_root_dir} \
+fsid=1  $pcs_group_parameter
+
+pcs -f /root/${pcs_cfg} resource create export1_client_spec_1 exportfs \
+--after nfs-root_client_spec_2  \
+clientspec=${exportfs_client_spec_1} \
+options=${options} \
+directory=${nfs_export1_dir} \
+fsid=2 $pcs_group_parameter
+
+
+pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
+--after export1_client_spec_1 \
+clientspec=${exportfs_client_spec_2} \
+options=${options} \
+directory=${nfs_export1_dir} \
+fsid=3  $pcs_group_parameter
+
+
+    pcs -f /root/${pcs_cfg} resource create ${ipaddr2_vip_name} ocf:heartbeat:IPaddr2 ip=${TARGET_VIP} cidr_netmask=${cidr_netmask} op monitor interval=20s $pcs_group_parameter
+
+    pcs -f /root/${pcs_cfg} alert create id=ip_move description="Move IP address using oci-cli" path=/var/lib/pacemaker/ip_move.sh
+    pcs -f /root/${pcs_cfg} alert recipient add ip_move id=logfile_ip_move value=/var/log/pacemaker_ip_move.log
+
+    pcs -f /root/${pcs_cfg} constraint colocation add ${filesystem_name} with ${lv_name} INFINITY
+    pcs -f /root/${pcs_cfg} constraint order ${lv_name} then ${filesystem_name}
+
+# pcs constraint colocation add disk with ${filesystem_name} INFINITY
+# pcs constraint order disk then ${filesystem_name}
+
+
+    pcs -f /root/${pcs_cfg} constraint colocation add ${service_name} with ${filesystem_name} INFINITY
+    pcs -f /root/${pcs_cfg} constraint order ${filesystem_name} then ${service_name}
+
+
+pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
+pcs -f /root/${pcs_cfg} constraint order ${service_name} then nfs-root_client_spec_1
+pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
+pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
+pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
+pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_2 then export1_client_spec_1
+pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
+pcs -f /root/${pcs_cfg} constraint order export1_client_spec_1 then export1_client_spec_2
+
+#pcs constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
+#pcs constraint order ${service_name} then nfs-root_client_spec_1
+#pcs constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
+#pcs constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
+#pcs constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
+#pcs constraint order nfs-root_client_spec_2 then export1_client_spec_1
+#pcs constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
+#pcs constraint order export1_client_spec_1 then export1_client_spec_2
+
+pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
+pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
+
+
+# OLD one without exportfs
+##pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
+##pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
+
+
+  # end of if loop node = node1
+  fi
+
+  # Now push the configuration so it becomes active.
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+    pcs cluster cib-push /root/${pcs_cfg}
+    sleep 5s
+  else
+    # for node1 to finish the configuration
+    sleep 30s
+  fi
+  pcs status
+
+
+

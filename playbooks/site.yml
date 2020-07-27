@@ -1,0 +1,57 @@
+# tasks/hosts.yml
+
+- hosts: all 
+  become: true
+  pre_tasks:
+   - setup:
+      gather_subset:
+        - '!all'
+        - '!any'
+        - 'network'
+  tasks: 
+  - name: stop firewalld
+    service: 
+      name: firewalld
+      state: stopped
+      enabled: no
+    async: 30
+    poll: 0
+  - name: update global known_hosts file
+    become: true
+    template:
+      force: true
+      backup: true
+      dest: /etc/ssh/ssh_known_hosts
+      src: _known_hosts.j2
+    tags: known_hosts
+    delegate_to: 127.0.0.1
+  - name: update /etc/hosts file
+    become: true
+    blockinfile:
+      dest: /etc/hosts
+      content: "{{ lookup('template', '_hosts.j2') }}"
+      state: present
+    async: 30
+    poll: 0
+  - name: place the known SSH hosts on every node
+    become: true
+    copy:
+      src: /etc/ssh/ssh_known_hosts
+      dest: /etc/ssh/ssh_known_hosts
+      owner: root
+      group: root
+      mode: 644
+  - name: place the private SSH key on every node
+    become: true
+    copy: 
+      src: /home/opc/.ssh/id_rsa
+      dest: /home/opc/.ssh/id_rsa
+      owner: opc
+      group: opc
+      mode: 0600
+
+
+- import_playbook: nfs.yml
+  when:
+    - fs_name == "NFS"
+

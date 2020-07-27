@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -x
+
+# required to ensure "make kmp-rpm" works without errors.  By default, on first boot, / is the root and not /root, which is the needed location.
+export HOME=/root
+cd ${HOME}
+
+# Build the folder structure
+cd ~/; mkdir -p rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+# Getting RPM Build
+yum -y install rpm-build
+
+# First compiling DRBD version 9.   On OLUEK, both kernel-devel and kernel-uek-devel are required.
+yum install "kernel-devel-uname-r == $(uname -r)"  -y
+if [ $? -ne 0 ]; then
+  yum install -y kernel-devel
+fi
+
+yum install "kernel-uek-devel-uname-r == $(uname -r)" -y
+if [ $? -ne 0 ]; then
+  kernel_version=`uname -r | sed "s/.el7uek.x86_64//g"`  ;  echo $kernel_version
+  #closest_k_version=`yum list kernel-uek-devel --showduplicates | grep $kernel_version | gawk -F" " '{ print $2 }'` ; echo $closest_k_version
+  #yum install -y kernel-uek-devel-$closest_k_version
+  yum install -y kernel-uek-devel-$kernel_version*
+  if [ $? -ne 0 ]; then
+    # just go with the latest
+    yum install -y kernel-uek-devel
+  fi
+fi
+
+yum -y install cpp gcc gcc-c++
+
+wget http://www.linbit.com/downloads/drbd/9.0/drbd-9.0.19-1.tar.gz
+tar zxvf drbd-9.0.19-1.tar.gz
+cd drbd-9.0.19-1/
+make kmp-rpm
+
+cd ~/
+# Now compiling drbd-utils
+yum -y install flex po4a gcc-c++ automake libxslt docbook-style-xsl
+# Had to use 9.0.0 from archive instead of 9.10.0
+wget http://www.linbit.com/downloads/drbd/utils/archive/drbd-utils-9.0.0.tar.gz
+tar zxvf drbd-utils-9.0.0.tar.gz
+cd drbd-utils-9.0.0/
+sed -i '/%bcond_without sbinsymlinks/a %undefine with_sbinsymlinks' drbd.spec.in
+./configure
+make rpm
+cd ~/
+
+yum -y localinstall /root/rpmbuild/RPMS/x86_64/drbd-utils-9.0.0-1.el7.x86_64.rpm
+yum -y localinstall /root/rpmbuild/RPMS/x86_64/drbd-bash-completion-9.0.0-1.el7.x86_64.rpm
+yum -y localinstall /root/rpmbuild/RPMS/x86_64/drbd-pacemaker-9.0.0-1.el7.x86_64.rpm
+yum -y localinstall /root/rpmbuild/RPMS/x86_64/kmod-drbd-9.0.19_3.10.0_1062.9.1-1.x86_64.rpm
+
+# Disable DRBD if enabled by default.
+systemctl disable drbd
+
+#
+yum -y install pcs pacemaker corosync
+# disable all of them for the image.  Then once the DRBD is configured completely (after reboot) and all the below services are also configured, then enable them, so on each reboot, these services will be on already.
+systemctl disable pcsd
+systemctl disable pacemaker
+systemctl disable corosync
+
+
+#reboot
+
+

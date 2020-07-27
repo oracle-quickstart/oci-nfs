@@ -1,0 +1,37 @@
+totem {
+    version: 2
+    cluster_name: nfs_cluster
+    transport: udpu
+    interface {
+        ringnumber: 0
+        Bindnetaddr: LOCAL_NODE_IP
+        broadcast: yes
+        mcastport: 5405
+    }
+}
+nodelist {
+    node {
+        ring0_addr: NODE1
+        name: NODE1
+        nodeid: 1
+    }
+
+    node {
+        ring0_addr: NODE2
+        name: NODE2
+        nodeid: 2
+    }
+}
+
+quorum {
+    provider: corosync_votequorum
+    two_node: 1
+}
+
+logging {
+    to_logfile: yes
+    logfile: /var/log/corosync/corosync.log
+    timestamp: on
+    to_syslog: yes
+}
+

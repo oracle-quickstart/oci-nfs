@@ -1,0 +1,164 @@
+
+
+- hosts: storage
+  become: true
+  pre_tasks:
+   - setup:
+      gather_subset:
+        - '!all'
+        - '!any'
+        - 'network'
+  tasks:
+  - name: Disable SELinux
+    selinux:
+      state: disabled
+  - name: stop firewalld
+    service:
+      name: firewalld
+      state: stopped
+      enabled: no
+    async: 30
+    poll: 0
+  - name: install nfs_utils
+    become: true
+    yum:
+      name:
+        - nfs-utils
+        - nfs4-acl-tools
+      lock_timeout: 180
+  - name: update lvm.conf
+    command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
+  - name: create nfs_install_storage.sh file
+    template:
+      src: _nfs_install_storage.sh.j2
+      dest: /home/opc/nfs_install_storage.sh
+  - name: execute nfs_install_storage.sh
+    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/nfs_install_storage.sh"
+    run_once: true
+  - name: create /home/opc/ha_config directory
+    become: true
+    file:
+      path: /home/opc/ha_config
+      state: directory
+    when: fs_ha|bool
+  - name: create corosync file
+    template:
+      src: _corosync.j2
+      dest: /home/opc/ha_config/corosync
+    when: fs_ha|bool
+  - name: create corosync.conf file
+    template:
+      src: _corosync.conf.j2
+      dest: /home/opc/ha_config/corosync.conf
+    when: fs_ha|bool
+  - name: create ip_move.sh file
+    template:
+      src: _ip_move.sh.j2
+      dest: /home/opc/ha_config/ip_move.sh
+    when: fs_ha|bool
+  - name: create move_secip.sh file
+    template:
+      src: _move_secip.sh.j2
+      dest: /home/opc/ha_config/move_secip.sh
+    when: fs_ha|bool
+  - name: create pcmk file
+    template:
+      src: _pcmk.j2
+      dest: /home/opc/ha_config/pcmk
+    when: fs_ha|bool
+  - name: create install_ha_rpms.sh file
+    template:
+      src: _install_ha_rpms.sh.j2
+      dest: /home/opc/install_ha_rpms.sh
+    when: fs_ha|bool
+  - name: execute install_ha_rpms.sh
+    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_ha_rpms.sh"
+    when: fs_ha|bool
+  - name: create install_ha_config.sh file
+    template:
+      src: _install_ha_config.sh.j2
+      dest: /home/opc/install_ha_config.sh
+    when: fs_ha|bool
+  - name: execute install_ha_config.sh
+    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_ha_config.sh"
+    when: fs_ha|bool
+
+
+- hosts: compute
+  become: true
+  pre_tasks:
+   - setup:
+      gather_subset:
+        - '!all'
+        - '!any'
+        - 'network'
+  tasks:
+  - name: Disable SELinux
+    selinux:
+      state: disabled
+  - name: stop firewalld
+    service:
+      name: firewalld
+      state: stopped
+      enabled: no
+    async: 30
+    poll: 0
+  - name: install nfs_utils
+    become: true
+    yum:
+      name:
+        - nfs-utils
+        - nfs4-acl-tools
+      lock_timeout: 180
+  - name: create nfs_install_client.sh file
+    template:
+      src: _nfs_install_client.sh.j2
+      dest: /home/opc/nfs_install_client.sh
+  - name: execute nfs_install_client.sh
+    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/nfs_install_client.sh"
+  - name: sleep for 60 seconds and continue with play
+    wait_for:
+      timeout: 60
+    delegate_to: localhost
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}"
+      state: directory
+  - name: Mount NFSv3
+    mount:
+      path: "{{ mount_point }}"
+      src: "{{ nfs_server_ip }}:/mnt/nfsshare/exports"
+      fstype: nfs
+      opts: defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}v4"
+      state: directory
+  - name: Mount NFSv4
+    mount:
+      path: "{{ mount_point }}v4"
+      src: "{{ nfs_server_ip }}:/"
+      fstype: nfs
+      opts: vers=4,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}v4"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0

@@ -1,0 +1,168 @@
+
+
+
+configure_node()
+{
+  touch /var/log/CONFIG_COMPLETE
+}
+
+
+
+make_filesystem()
+{
+    lvcreate -l 100%VG --stripes $lvm_stripes_cnt --stripesize "{{ block_size }}K" -n $disk_name $vg_nfs_name
+    lvdisplay
+
+    # Create XFS filesystem with Inodes set at 512 and Directory block size at 8192
+    # and set the su and sw for optimal stripe performance
+    # lvm_stripe_size is assumed to be in KB, hence multiply by 1024 to convert to bytes.
+    # su must be a multiple of the sector size (4096)
+    # sw must be equal to # of disk within RAID or LVM.
+    su=$(({{ block_size }}*1024)) ;  echo $su
+    sw=$((lvm_stripes_cnt)) ; echo $sw
+    mkfs.xfs -f -i size=512 -n size=8192 -d su=${su},sw=${sw} /dev/${vg_nfs_name}/${disk_name}
+    mount_point="/mnt/nfsshare"
+    mkdir -p ${mount_point}
+    # Temporary mount to create directories needed by ocf::heartbeat:exportfs
+    mount -t xfs -o noatime,inode64,nobarrier /dev/${vg_nfs_name}/${disk_name} ${mount_point}
+    df -h
+    mkdir -p ${mount_point}/exports
+    mkdir -p ${mount_point}/exports/export1
+    if [ "{{ fs_ha }}" = "true" ]; then
+      # unmount it, since we want PCS to manage it.
+      umount ${mount_point}
+    else
+      echo "Keep the disk mounted."
+    fi
+}
+
+create_volume_group() {
+  # Required to control and support lvm activate via PCS.
+  # https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/configuring_and_managing_high_availability_clusters/assembly_configuring-active-passive-nfs-server-in-a-cluster-configuring-and-managing-high-availability-clusters#proc_configuring-lvm-volume-with-ext4-file-system-configuring-ha-nfs
+##sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf
+  # Do the below on each node, if manually required. 
+  #vgchange --systemid nfs-1 vg_nfs_disk
+  dataalignment=$(({{ block_size }})); echo $dataalignment;
+  pvcreate --dataalignment $dataalignment  /dev/$disk
+  physicalextentsize="{{ block_size }}K";  echo $physicalextentsize
+  if [ $disk_counter -eq 1  ]; then
+    vgcreate  --physicalextentsize $physicalextentsize $vg_nfs_name /dev/$disk
+  else
+    vgextend $vg_nfs_name /dev/$disk
+  fi
+  vgdisplay
+  #vgchange --systemid nfs-1 vg_nfs_disk
+}
+
+configure_disks()
+{
+
+  nvme_lst=$(ls /dev/ | grep nvme | grep n1 | sort)
+  nvme_cnt=$(ls /dev/ | grep nvme | grep n1 | wc -l)
+
+  if [ $nvme_cnt -gt 0 ]; then
+
+  disk_name="disk"
+  vg_nfs_name="vg_nfs_${disk_name}"
+  disk_counter=1
+  count=1
+  # Configure physical volumes and volume group
+      for disk in $nvme_lst
+      do
+          create_volume_group
+          disk_counter=$((disk_counter+1))
+          count=$((count+1))
+      done
+
+  lvm_stripes_cnt=$((disk_counter-1))
+  make_filesystem
+
+
+  else
+
+      # Wait for block-attach of the Block volumes to complete. Terraform then creates the below file on server nodes of cluster.
+      while [ ! -f /tmp/block-attach.complete ]
+        do
+          sleep 60s
+          echo "Waiting for block-attach via Terraform to  complete ..."
+        done
+
+
+      # Gather list of block devices for brick config
+      blk_lst=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | awk '{ print $1 }' | sort)
+      blk_cnt=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | wc -l)
+
+      disk_name="disk"
+      vg_nfs_name="vg_nfs_${disk_name}"
+      # reset the counters.
+      disk_counter=1
+      count=1
+      # Configure physical volumes and volume group
+      for disk in $blk_lst
+      do
+        create_volume_group
+        disk_counter=$((disk_counter+1))
+        count=$((count+1))
+      done
+      lvm_stripes_cnt=$((disk_counter-1))
+      make_filesystem
+
+  fi
+
+}
+
+
+
+
+
+# Start of script
+set -x
+# block_size is expected be to numerical only, but still check and remove k,K,kb,KB them, if they exist.
+lvm_stripe_size=`echo {{ block_size }} | gawk -F"k|K|KB|kb" ' { print $1 }'` ;
+echo $lvm_stripe_size;
+
+if [ "{{ fs_ha }}" = "true" ]; then
+  vnicId=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[0].vnicId' | sed 's/"//g' ` ; echo $vnicId
+  storage_vip_private_ip="{{ storage_vip_private_ip }}"
+  /root/secondary_vnic_all_configure.sh -c -e $storage_vip_private_ip $vnicId
+else
+  echo "non-HA setup"
+fi
+
+configure_node
+configure_disks
+
+if [ "{{ fs_ha }}" = "true" ]; then
+
+  echo "NFS config logic in install_ha_config.sh file, will be called later in deployment"
+
+else
+
+  echo "non-HA setup..."
+  SSH_OPTIONS=" -i /home/opc/.ssh/id_rsa -o BatchMode=yes -o StrictHostkeyChecking=no "
+  MDATA_VNIC_URL="http://169.254.169.254/opc/v1/vnics/"
+  lv_name="{{ lv_name }}"
+  vg_name="{{ vg_name }}"
+  filesystem_name="nfsshare"
+  filesystem_type="xfs"
+  filesystem_device="/dev/{{ vg_name }}/{{ lv_name }}"
+  filesystem_dir="/mnt/nfsshare"
+  exportfs_client_spec_1_cidr_block="{{ private_storage_subnet_cidr_block }}"
+  exportfs_client_spec_2_cidr_block="{{ public_subnet_cidr_block }}"
+  exportfs_client_spec_1_netmask=`ipcalc -m  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_1_network=`ipcalc -n  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_2_netmask=`ipcalc -m  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_2_network=`ipcalc -n  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_1="${exportfs_client_spec_1_network}/${exportfs_client_spec_1_netmask}"
+  exportfs_client_spec_2="${exportfs_client_spec_2_network}/${exportfs_client_spec_2_netmask}"
+  options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
+  nfs_root_dir="${filesystem_dir}/exports"
+  nfs_export1_dir="${nfs_root_dir}/export1"
+
+  mv /etc/exports /etc/exports.backup
+  echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options},fsid=0) ${exportfs_client_spec_2}(${options},fsid=0) " >> /etc/exports
+  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options},fsid=1) ${exportfs_client_spec_2}(${options},fsid=1) " >> /etc/exports
+
+  sudo systemctl restart nfs-server
+
+fi

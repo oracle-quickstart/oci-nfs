@@ -1,0 +1,402 @@
+title: "HFS Deployment"
+schemaVersion: 1.0.0
+version: "20200403"
+locale: "en"
+
+groupings:
+  - title: "Predefined General Configuration"
+    visible: false
+    variables:
+    - tenancy_ocid
+    - compartment_ocid
+    - region
+    - ssh_user
+    - volume_attach_device_mapping
+    - volume_type_vpus_per_gb_mapping
+    - ad_number
+    - images
+    - mp_listing_id
+    - mp_listing_resource_id
+    - mp_listing_resource_version
+    - use_marketplace_image
+    - block_size
+    - fs_name
+  - title: "NFS Filesystem Configuration"
+    visible: true
+    variables:
+    - fs_type
+    - fs_ha
+  - title: "General Deployment Configuration"
+    visible: true
+    variables:
+    - ssh_public_key
+    - ad_name
+  - title: "VCN Configuration"
+    visible: true
+    variables:
+    - use_existing_vcn
+    - vpc_cidr
+    - vcn_id
+    - bastion_subnet_id
+    - storage_subnet_id
+    - storage_vip_private_ip
+    - client_subnet_id
+  - title: "Bastion Instance Configuration"
+    visible: false
+    variables:
+    - bastion_shape
+    - bastion_node_count
+    - bastion_hostname_prefix
+  - title: "NFS Server Instance Configuration"
+    visible: true
+    variables:
+    - scratch_storage_server_shape
+    - persistent_storage_server_shape
+    - storage_server_node_count
+    - storage_server_hostname_prefix
+  - title: "NFS Storage Configuration"
+    variables:
+    - storage_tier_1_disk_perf_tier
+    - storage_tier_1_disk_count
+    - storage_tier_1_disk_size
+    visible:
+      not:
+        - eq:
+          - ${fs_type}
+          - "Scratch"
+  - title: "NFS Client Instance Configuration"
+    visible: true
+    variables:
+    - create_compute_nodes
+    - client_node_shape
+    - client_node_count
+    - client_node_hostname_prefix
+    - mount_point
+
+
+# Add variable here ,  if you want to do input validation or else it does not need to be included here.
+variables:
+  ssh_public_key:
+    title: "SSH Public Key"
+    description: "Public key to ssh into all provisioned compute instances."
+    type: string
+    required: true
+
+  ad_name:
+    title: "Availability Domain"
+    description: "Availability Domain where filesystem is deployed."
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+    required: true
+
+  bastion_shape:
+    title: "Bastion Compute Shape"
+    description: "Shape for bastion instances."
+    type: oci:core:instanceshape:name
+    default: "VM.Standard2.2"
+    required: true
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+      imageId: ${mp_listing_resource_id}
+
+  bastion_node_count:
+    title: "Number of bastion"
+    description: "Number of bastion instances."
+    type: integer
+    default: 1
+    minimum: 1
+    required: true
+
+  bastion_hostname_prefix:
+    type: string
+    required: true
+    default: "bastion-"
+    description: "Bastion hostname prefix "
+
+  scratch_storage_server_shape:
+    title: "Storage Server Compute Shape"
+    description: "Shape for storage server instances. DenseIO shapes come with local NVMe SSDs which will be used for storage."
+    default: "BM.DenseIO2.52"
+    required: true
+    type: enum
+    enum:
+    - "VM.DenseIO2.8"
+    - "VM.DenseIO2.16"
+    - "VM.DenseIO2.24"
+    - "BM.DenseIO2.52"
+    - "BM.HPC2.36"
+    visible:
+      and:
+        - eq:
+          - ${fs_type}
+          - "Scratch"
+
+  persistent_storage_server_shape:
+    title: "Storage Server Compute Shape"
+    description: "Shape for storage server instances."
+    default: "BM.Standard2.52"
+    required: true
+    type: enum
+    enum:
+    - "VM.Standard2.1"
+    - "VM.Standard2.2"
+    - "VM.Standard2.4"
+    - "VM.Standard2.8"
+    - "VM.Standard2.16"
+    - "VM.Standard2.24"
+    - "VM.GPU2.1"
+    - "VM.GPU3.1"
+    - "VM.GPU3.2"
+    - "VM.GPU3.4"
+    - "BM.Standard2.52"
+    - "VM.Standard.E2.1"
+    - "VM.Standard.E2.2"
+    - "VM.Standard.E2.4"
+    - "VM.Standard.E2.8"
+    - "BM.Standard.E2.64"
+    - "BM.Standard.E2.128"
+    - "BM.GPU2.2"
+    - "BM.GPU3.8"
+    - "DVH.Standard2.52"
+    visible:
+      and:
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+  storage_server_node_count:
+    title: "Number of storage servers"
+    description: "Number of storage server instances."
+    type: integer
+    default: 2
+    minimum: 1
+    required: true
+    visible: false
+
+  storage_server_hostname_prefix:
+    type: string
+    required: true
+    default: "storage-server-"
+    description: "Storage server hostname prefix "
+    visible: false
+
+  storage_tier_1_disk_perf_tier:
+    title: "Block Volume Storage Performance tier"
+    description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
+    type: enum
+    enum:
+    - "Higher Performance"
+    - "Balanced"
+    - "Lower Cost"
+    required: true
+    default: "Higher Performance"
+    visible:
+      - eq:
+        - ${fs_type}
+        - "Persistent"
+
+  storage_tier_1_disk_count:
+    title: "Number of block volumes"
+    description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
+    type: integer
+    default: 8
+    minimum: 1
+    maximum: 32
+    required: true
+    visible:
+      - eq:
+        - ${fs_type}
+        - "Persistent"
+
+  storage_tier_1_disk_size:
+    title: "Block volume size"
+    description: "Select size in GB for each block volume/disk, min 50."
+    type: integer
+    default: 1000
+    minimum: 50
+    maximum: 32768
+    required: true
+    visible:
+      - eq:
+        - ${fs_type}
+        - "Persistent"
+
+  create_compute_nodes:
+    type: boolean
+    title: "Create Compute Nodes"
+    description: "Select checkbox, if you want to create compute nodes to mount the filesystem"
+    required: false
+    default: false
+
+  client_node_shape:
+    title: "Client Compute Shape"
+    description: "Shape for client instances."
+    type: oci:core:instanceshape:name
+    default: "VM.Standard2.24"
+    required: true
+    visible: ${create_compute_nodes}
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+      imageId: ${mp_listing_resource_id}
+
+  client_node_count:
+    title: "Number of clients"
+    description: "Number of client instances."
+    type: integer
+    default: 1
+    visible: ${create_compute_nodes}
+    required: true
+
+  client_node_hostname_prefix:
+    title: "Client Node Hostname Prefix"
+    type: string
+    required: true
+    default: "client-"
+    description: "Client hostname prefix "
+    visible: false
+
+  fs_name:
+    title: "Filesystem Name"
+    type: enum
+    enum:
+    - "BeeGFS"
+    - "Lustre"
+    - "GlusterFS"
+    - "NFS"
+    required: true
+    default: "NFS"
+    description: "Select filesystem to deploy."
+    visible: false
+
+  fs_type:
+    title: "Filesystem Type"
+    type: enum
+    enum:
+    - "Scratch"
+    - "Persistent"
+    required: true
+    default: "Persistent"
+    description: "Select filesystem type to deploy. Scratch filesystem will use Compute shapes with local NVMe SSD disks. Persistent filesystem will use durable and highly available Block Volume Storage"
+
+  fs_ha:
+    type: boolean
+    title: "Active/Passive Highly Available"
+    description: "Select checkbox, to create an Active/Passive Highly Available two node NFS file servers"
+    required: true
+    default: false
+    visible:
+      and:
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+  mount_point:
+    title: "Filesystem Mount Point"
+    type: string
+    required: true
+    default: "/mnt/fs"
+    description: "Mount point on client instances for selected filesystem. "
+    visible: false
+
+  ad_number:
+    description: "Shadowed TF value to ignore"
+    type: integer
+    required: true
+    default: -1
+
+  ssh_user:
+    type: string
+    required: true
+    default: "opc"
+    description: "opc for OracleLinux & CentOS, ubuntu for Ubuntu OS."
+
+  mp_listing_id:
+    type: string
+    required: true
+    description: "Marketplace Listing ID"
+
+  mp_listing_resource_id:
+    type: oci:core:image:id
+    required: true
+    description: "Marketplace Image OCID"
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+
+  mp_listing_resource_version:
+    type: string
+    required: true
+    description: "Marketplace Listing package version"
+
+  use_existing_vcn:
+    type: boolean
+    title: "Use Existing VCN"
+    description: "Select checkbox, to use existing VCN, otherwise new VCN, subnets and related resources will be created"
+    required: true
+    default: false
+
+  vpc_cidr:
+    title: "VPC CIDR"
+    description: "Network CIDR to use for VPC/VCN."
+    type: string
+    default: "10.0.0.0/16"
+    required: true
+    visible:
+      not:
+        - ${use_existing_vcn}
+
+  vcn_id:
+    type: oci:core:vcn:id
+    title: "Existing VCN"
+    description: "Select Existing VCN"
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+    visible: ${use_existing_vcn}
+    required: true
+
+  bastion_subnet_id:
+    type: oci:core:subnet:id
+    title: "Bastion Subnet"
+    description: "Select Subnet - Ensure the Subnet is in the same Availability Domain selected above"
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+      vcnId: ${vcn_id}
+      hidePrivateSubnet: ${hide_private_subnet}
+    visible: ${use_existing_vcn}
+    required: true
+
+  storage_subnet_id:
+    type: oci:core:subnet:id
+    title: "Storage Subnet"
+    description: "Select Subnet to access Block Volmes or local SSDs storage. Ensure the Subnet is in the same Availability Domain selected above"
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+      vcnId: ${vcn_id}
+      hidePublicSubnet: ${hide_public_subnet}
+    visible: ${use_existing_vcn}
+    required: true
+
+  storage_vip_private_ip:
+    type: string
+    title: "Virtual IP for HA (Highly Availability)"
+    description: "Virtual IP for HA (Highly Availability). Provide a private IP from subnet used to provision NFS file servers. Make sure its an IP which is not already used."
+    required: true
+    default: "10.0.3.200"
+    visible:
+      and:
+        - ${fs_ha}
+        - ${use_existing_vcn}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+  client_subnet_id:
+    type: oci:core:subnet:id
+    title: "NFS Client nodes Subnet"
+    description: "Select Subnet for NFS client nodes. Template assumes client subnet is a private subnet in the same VCN and same availability domain as server nodes"
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+      vcnId: ${vcn_id}
+      hidePublicSubnet: ${hide_public_subnet}
+    visible: ${use_existing_vcn}
+    required: true
