@@ -5,7 +5,10 @@ OCI NFS solution supports both NFSv3 and NFSv4.
 
 
 
+## Architecture
+Given below are various high level architecture for NFS deployment. 
 
+### Active/Passive NFS Server in a High Availability Cluster
 
-
+![](./images/NFS_Active_Passive_HA_High_Level_Arch.png)
     
