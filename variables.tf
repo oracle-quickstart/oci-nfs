@@ -79,8 +79,11 @@ variable "ssh_user" { default = "opc" }
 locals {
   storage_server_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? true : false)
   storage_server_hpc_shape = (length(regexall("HPC2", local.derived_storage_server_shape)) > 0 ? true : false)
+  standard_storage_node_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? (length(regexall("Standard",local.derived_storage_server_shape)) > 0 ? true : false) : false)
   storage_subnet_domain_name="${data.oci_core_subnet.private_storage_subnet.dns_label}.${data.oci_core_vcn.hfs.dns_label}.oraclevcn.com"
   vcn_domain_name="${data.oci_core_vcn.hfs.dns_label}.oraclevcn.com"
+  storage_server_filesystem_vnic_hostname_prefix = "${var.storage_server_hostname_prefix}fs-vnic-"
+  filesystem_subnet_domain_name="${data.oci_core_subnet.private_fs_subnet.dns_label}.${data.oci_core_vcn.hfs.dns_label}.oraclevcn.com"
 
   # If ad_number is non-negative use it for AD lookup, else use ad_name.
   # Allows for use of ad_number in TF deploys, and ad_name in ORM.
@@ -224,7 +227,7 @@ variable "storage_subnet_id" {
   default = ""
 }
 
-variable "client_subnet_id" {
+variable "fs_subnet_id" {
   default = ""
 }
 
@@ -232,7 +235,9 @@ variable "create_compute_nodes" {
   default = "false"
 }
 
-variable storage_vip_private_ip { default = "10.0.3.200" }
+variable storage_primary_vnic_vip_private_ip { default = "10.0.3.200" }
+variable storage_secondary_vnic_vip_private_ip { default = "10.0.6.200" }
+
 
 # Generate a new strong password for hacluster user
 resource "random_string" "hacluster_user_password" {

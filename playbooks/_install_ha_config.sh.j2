@@ -40,11 +40,15 @@ options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
 nfs_root_dir="${filesystem_dir}/exports"
 nfs_export1_dir="${nfs_root_dir}/export1"
 
-
+  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
+    exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+    exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+    exportfs_client_spec_3="${exportfs_client_spec_3_network}/${exportfs_client_spec_3_netmask}"
+  fi
 
 ha_config_dir="/home/opc/ha_config"
 
-# {{ storage_vip_private_ip }}
 
 
 
@@ -97,12 +101,15 @@ function configure_vip_move {
   echo "$NODE1_IP $NODE1_FQDN $NODE1" >> /etc/hosts
   echo "$NODE2_IP $NODE2_FQDN $NODE2" >> /etc/hosts
   # VIRTUAL IP
-  TARGET_VIP={{ storage_vip_private_ip }}
+  TARGET_VIP={{ nfs_server_ip }}
 
 
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
-
-    node1vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
+    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+      node1vnic=`curl -s $MDATA_VNIC_URL | jq '.[1].vnicId' | sed 's/"//g' ` ;
+    else
+      node1vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
+    fi
 
     ssh ${SSH_OPTIONS}  opc@${NODE2_IP} "ls -l /home/opc/.ssh/id_rsa"
     while [ $? -ne 0 ]
@@ -112,11 +119,20 @@ function configure_vip_move {
       ssh ${SSH_OPTIONS}  opc@${NODE2_IP} "ls -l /home/opc/.ssh/id_rsa"
     done
 
-    node2vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE2_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
+    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+      node2vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE2_IP} "curl -s $MDATA_VNIC_URL | jq '.[1].vnicId'  "` ;
+    else
+      node2vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE2_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
+    fi
     node2vnic=`echo $node2vnic_w_quotes |  sed 's/"//g' ` ;
   else
     # SWAP logic, since its node2 here.
-    node2vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
+    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+      node2vnic=`curl -s $MDATA_VNIC_URL | jq '.[1].vnicId' | sed 's/"//g' ` ;
+    else
+      node2vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
+    fi
+
 
     ssh ${SSH_OPTIONS}  opc@${NODE1_IP} "ls -l /home/opc/.ssh/id_rsa"
     while [ $? -ne 0 ]
@@ -126,7 +142,11 @@ function configure_vip_move {
       ssh ${SSH_OPTIONS}  opc@${NODE1_IP} "ls -l /home/opc/.ssh/id_rsa"
     done
 
-    node1vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE1_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
+    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+      node1vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE1_IP} "curl -s $MDATA_VNIC_URL | jq '.[1].vnicId'  "` ;
+    else
+      node1vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE1_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
+    fi
     node1vnic=`echo $node1vnic_w_quotes |  sed 's/"//g' ` ;
   fi
   subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[0].subnetCidrBlock  ' | sed 's/"//g' ` ;
@@ -275,20 +295,21 @@ options=${options} \
 directory=${nfs_root_dir} \
 fsid=0  $pcs_group_parameter
 
-
+# We need to use  " --force" to allow the same root folder to be exported for multiple subnets using fsid=0
+# Error: Value '0' of option 'fsid' is not unique across 'ocf:heartbeat:exportfs' resources. Following resources are configured with the same value of the instance attribute: 'nfs-root_client_spec_1', use --force to override
 pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_2 exportfs \
 --after nfs-root_client_spec_1 \
 clientspec=${exportfs_client_spec_2} \
 options=${options} \
 directory=${nfs_root_dir} \
-fsid=1  $pcs_group_parameter
+fsid=0  $pcs_group_parameter  --force
 
 pcs -f /root/${pcs_cfg} resource create export1_client_spec_1 exportfs \
 --after nfs-root_client_spec_2  \
 clientspec=${exportfs_client_spec_1} \
 options=${options} \
 directory=${nfs_export1_dir} \
-fsid=2 $pcs_group_parameter
+fsid=1 $pcs_group_parameter  --force
 
 
 pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
@@ -296,7 +317,25 @@ pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
 clientspec=${exportfs_client_spec_2} \
 options=${options} \
 directory=${nfs_export1_dir} \
-fsid=3  $pcs_group_parameter
+fsid=1  $pcs_group_parameter  --force
+
+if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+
+pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_3 exportfs \
+--after export1_client_spec_2 \
+clientspec=${exportfs_client_spec_3} \
+options=${options} \
+directory=${nfs_root_dir} \
+fsid=0  $pcs_group_parameter  --force
+
+pcs -f /root/${pcs_cfg} resource create export1_client_spec_3 exportfs \
+--after nfs-root_client_spec_3 \
+clientspec=${exportfs_client_spec_3} \
+options=${options} \
+directory=${nfs_export1_dir} \
+fsid=1  $pcs_group_parameter  --force
+
+fi
 
 
     pcs -f /root/${pcs_cfg} resource create ${ipaddr2_vip_name} ocf:heartbeat:IPaddr2 ip=${TARGET_VIP} cidr_netmask=${cidr_netmask} op monitor interval=20s $pcs_group_parameter
@@ -319,22 +358,30 @@ pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${
 pcs -f /root/${pcs_cfg} constraint order ${service_name} then nfs-root_client_spec_1
 pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
 pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
+
 pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
 pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_2 then export1_client_spec_1
 pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
 pcs -f /root/${pcs_cfg} constraint order export1_client_spec_1 then export1_client_spec_2
 
-#pcs constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
-#pcs constraint order ${service_name} then nfs-root_client_spec_1
-#pcs constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
-#pcs constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
-#pcs constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
-#pcs constraint order nfs-root_client_spec_2 then export1_client_spec_1
-#pcs constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
-#pcs constraint order export1_client_spec_1 then export1_client_spec_2
+if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
 
-pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
-pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
+  pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_3 with export1_client_spec_2 INFINITY
+  pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then nfs-root_client_spec_3
+
+  pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_3 with nfs-root_client_spec_3 INFINITY
+  pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_3 then export1_client_spec_3
+
+  pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_3 INFINITY
+  pcs -f /root/${pcs_cfg} constraint order export1_client_spec_3 then ${ipaddr2_vip_name}
+
+else
+
+  pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
+  pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
+
+fi
+
 
 
 # OLD one without exportfs

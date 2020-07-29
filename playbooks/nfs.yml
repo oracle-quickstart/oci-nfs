@@ -26,6 +26,12 @@
         - nfs-utils
         - nfs4-acl-tools
       lock_timeout: 180
+  - name: create configure_vnic.sh file
+    template:
+      src: _configure_vnic.sh.j2
+      dest: /home/opc/configure_vnic.sh
+  - name: execute configure_vnic.sh
+    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/configure_vnic.sh"
   - name: update lvm.conf
     command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
   - name: create nfs_install_storage.sh file

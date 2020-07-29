@@ -17,6 +17,10 @@ data "oci_core_subnet" "private_storage_subnet" {
   subnet_id = local.storage_subnet_id
 }
 
+data "oci_core_subnet" "private_fs_subnet" {
+  subnet_id = local.fs_subnet_id
+}
+
 data "oci_core_subnet" "public_subnet" {
   subnet_id = local.bastion_subnet_id
 }

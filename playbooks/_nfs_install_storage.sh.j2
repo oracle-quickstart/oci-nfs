@@ -7,7 +7,6 @@ configure_node()
 }
 
 
-
 make_filesystem()
 {
     lvcreate -l 100%VG --stripes $lvm_stripes_cnt --stripesize "{{ block_size }}K" -n $disk_name $vg_nfs_name
@@ -121,13 +120,6 @@ set -x
 lvm_stripe_size=`echo {{ block_size }} | gawk -F"k|K|KB|kb" ' { print $1 }'` ;
 echo $lvm_stripe_size;
 
-if [ "{{ fs_ha }}" = "true" ]; then
-  vnicId=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[0].vnicId' | sed 's/"//g' ` ; echo $vnicId
-  storage_vip_private_ip="{{ storage_vip_private_ip }}"
-  /root/secondary_vnic_all_configure.sh -c -e $storage_vip_private_ip $vnicId
-else
-  echo "non-HA setup"
-fi
 
 configure_node
 configure_disks
@@ -149,19 +141,28 @@ else
   filesystem_dir="/mnt/nfsshare"
   exportfs_client_spec_1_cidr_block="{{ private_storage_subnet_cidr_block }}"
   exportfs_client_spec_2_cidr_block="{{ public_subnet_cidr_block }}"
+
   exportfs_client_spec_1_netmask=`ipcalc -m  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
   exportfs_client_spec_1_network=`ipcalc -n  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
   exportfs_client_spec_2_netmask=`ipcalc -m  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
   exportfs_client_spec_2_network=`ipcalc -n  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
+
   exportfs_client_spec_1="${exportfs_client_spec_1_network}/${exportfs_client_spec_1_netmask}"
   exportfs_client_spec_2="${exportfs_client_spec_2_network}/${exportfs_client_spec_2_netmask}"
+
+  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
+    exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+    exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+    exportfs_client_spec_3="${exportfs_client_spec_3_network}/${exportfs_client_spec_3_netmask}"
+  fi
   options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
   nfs_root_dir="${filesystem_dir}/exports"
   nfs_export1_dir="${nfs_root_dir}/export1"
 
   mv /etc/exports /etc/exports.backup
-  echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options},fsid=0) ${exportfs_client_spec_2}(${options},fsid=0) " >> /etc/exports
-  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options},fsid=1) ${exportfs_client_spec_2}(${options},fsid=1) " >> /etc/exports
+  echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options},fsid=0) ${exportfs_client_spec_2}(${options},fsid=0) ${exportfs_client_spec_3}(${options},fsid=0) " >> /etc/exports
+  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options},fsid=1) ${exportfs_client_spec_2}(${options},fsid=1) ${exportfs_client_spec_3}(${options},fsid=1) " >> /etc/exports
 
   sudo systemctl restart nfs-server
 

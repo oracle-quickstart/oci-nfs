@@ -7,7 +7,21 @@ resource "tls_private_key" "ssh" {
 locals {
   bastion_subnet_id = var.use_existing_vcn ? var.bastion_subnet_id : element(concat(oci_core_subnet.public.*.id, [""]), 0)
   image_id          = (var.use_marketplace_image ? var.mp_listing_resource_id : var.images[var.region])
-  client_subnet_id  = var.use_existing_vcn ? var.client_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
+  ##client_subnet_id  = var.use_existing_vcn ? var.client_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
+}
+
+locals {
+  storage_subnet_id = var.use_existing_vcn ? var.storage_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
+  fs_subnet_id        = var.use_existing_vcn ? var.fs_subnet_id : local.storage_server_dual_nics ? element(concat(oci_core_subnet.fs.*.id, [""]), 0) :  element(concat(oci_core_subnet.storage.*.id, [""]), 0)
+  client_subnet_id    = local.fs_subnet_id
+  derived_storage_server_shape = (length(regexall("^Scratch", var.fs_type)) > 0 ? var.scratch_storage_server_shape : var.persistent_storage_server_shape)
+  derived_storage_server_node_count=(var.fs_ha ? 2 : 1)
+  derived_storage_server_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : var.storage_tier_1_disk_count)
+}
+
+locals {
+  nfs=(length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
+  nfs_server_ip=(var.fs_ha ? (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? var.storage_primary_vnic_vip_private_ip : var.storage_secondary_vnic_vip_private_ip) : var.storage_primary_vnic_vip_private_ip) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0))
 }
 
 data "template_file" "bastion_config" {
@@ -18,7 +32,7 @@ data "template_file" "bastion_config" {
 }
 
 resource "oci_core_instance" "bastion" {
-  depends_on          = [ oci_core_instance.storage_server, oci_core_subnet.public,
+  depends_on          = [ oci_core_instance.storage_server, oci_core_subnet.public, oci_core_private_ip.storage_vip_private_ip
    ]
   count               = var.bastion_node_count
   availability_domain = local.ad
@@ -67,15 +81,20 @@ resource "oci_core_instance" "bastion" {
       public_subnet_cidr_block = data.oci_core_subnet.public_subnet.cidr_block,
       private_storage_subnet_cidr_block = data.oci_core_subnet.private_storage_subnet.cidr_block,
       private_storage_subnet_dns_label = data.oci_core_subnet.private_storage_subnet.dns_label,
+      private_fs_subnet_dns_label = data.oci_core_subnet.private_fs_subnet.dns_label,
       storage_subnet_domain_name = local.storage_subnet_domain_name,
       storage_server_node_count = local.derived_storage_server_node_count,
       storage_tier_1_disk_perf_tier = var.storage_tier_1_disk_perf_tier,
       mount_point = var.mount_point,
       block_size = var.block_size,
-      storage_vip_private_ip = var.storage_vip_private_ip,
       storage_server_hostname_prefix = var.storage_server_hostname_prefix,
       hacluster_user_password = random_string.hacluster_user_password.result,
-      nfs_server_ip = local.nfs_server_ip
+      nfs_server_ip = local.nfs_server_ip,
+      storage_server_filesystem_vnic_hostname_prefix = local.storage_server_filesystem_vnic_hostname_prefix,
+      filesystem_subnet_domain_name = local.filesystem_subnet_domain_name,
+      standard_storage_node_dual_nics = local.standard_storage_node_dual_nics,
+      private_fs_subnet_cidr_block = data.oci_core_subnet.private_fs_subnet.cidr_block,
+
     })
 
     destination   = "/home/opc/playbooks/inventory"
@@ -172,12 +191,7 @@ resource "null_resource" "run_configure_sh" {
 
 
 
-locals {
-  storage_subnet_id = var.use_existing_vcn ? var.storage_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
-  derived_storage_server_shape = (length(regexall("^Scratch", var.fs_type)) > 0 ? var.scratch_storage_server_shape : var.persistent_storage_server_shape)
-  derived_storage_server_node_count=(var.fs_ha ? 2 : 1)
-  derived_storage_server_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : var.storage_tier_1_disk_count)
-}
+
 
 
 resource "oci_core_instance" "storage_server" {
@@ -221,10 +235,7 @@ resource "oci_core_instance" "storage_server" {
 }
 
 
-locals {
-  nfs_only=(length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
-  nfs_server_ip=(var.fs_ha ? var.storage_vip_private_ip : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0))
-}
+
 
 
 resource "oci_core_instance" "client_node" {
@@ -235,7 +246,8 @@ resource "oci_core_instance" "client_node" {
   display_name        = "${var.client_node_hostname_prefix}${format("%01d", count.index+1)}"
   hostname_label      = "${var.client_node_hostname_prefix}${format("%01d", count.index+1)}"
   shape               = var.client_node_shape
-  subnet_id           = local.nfs_only ? local.storage_subnet_id : local.client_subnet_id
+  subnet_id           = local.client_subnet_id
+
 
 
   source_details {

@@ -27,10 +27,15 @@ storage_server_node_count=${storage_server_node_count}
 storage_tier_1_disk_perf_tier=${storage_tier_1_disk_perf_tier}
 mount_point=${mount_point}
 block_size=${block_size}
-storage_vip_private_ip=${storage_vip_private_ip}
 storage_server_hostname_prefix=${storage_server_hostname_prefix}
 hacluster_user_password=${hacluster_user_password}
 ipaddr2_vip_name="nfs_VIP"
 lv_name="disk"
 vg_name="vg_nfs_disk"
 nfs_server_ip=${nfs_server_ip}
+storage_server_filesystem_vnic_hostname_prefix=${storage_server_filesystem_vnic_hostname_prefix}
+private_fs_subnet_dns_label=${private_fs_subnet_dns_label}
+filesystem_subnet_domain_name=${filesystem_subnet_domain_name}
+standard_storage_node_dual_nics=${standard_storage_node_dual_nics}
+private_fs_subnet_cidr_block=${private_fs_subnet_cidr_block}
+
