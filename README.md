@@ -34,9 +34,11 @@ First off you'll need to do some pre deploy setup.  That's all detailed [here](h
 ## Clone the Terraform template
 Now, you'll want a local copy of this repo.  You can make that with the commands:
 
+```
 git clone https://github.com/oracle-quickstart/oci-nfs.git
 cd oci-nfs/
 ls
+```
 
 ## Customize the template 
 Create a terraform.tfvars file and set values as per your needs.  We recommend to use terraform.tfvars to override values in variables.tf file.   
@@ -67,9 +69,11 @@ mount_point="/mnt/nfs"
 ## Deployment and Post Deployment
 Deploy using standard Terraform commands
 
+```
 terraform init
 terraform plan
 terraform apply 
+```
 
 ![](./images/TF-apply.png)
 
