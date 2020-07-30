@@ -25,8 +25,8 @@ data "oci_core_subnet" "public_subnet" {
   subnet_id = local.bastion_subnet_id
 }
 
-data "oci_core_vcn" "hfs" {
-  vcn_id = var.use_existing_vcn ? var.vcn_id : oci_core_virtual_network.hfs[0].id
+data "oci_core_vcn" "nfs" {
+  vcn_id = var.use_existing_vcn ? var.vcn_id : oci_core_virtual_network.nfs[0].id
 }
 
 output "bastion" {

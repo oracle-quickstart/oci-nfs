@@ -9,19 +9,17 @@ variable "vpc_cidr" { default = "10.0.0.0/16" }
 variable "fs_name" { default = "NFS" }
 # Scratch or Persistent
 variable "fs_type" { default = "Persistent" }
-variable "fs_ha" { default = "false" }
+variable "fs_ha" { default = "true" }
 
 
-variable bastion_shape { default = "VM.Standard2.2" }
+variable bastion_shape { default = "VM.Standard2.1" }
 variable bastion_node_count { default = 1 }
 variable bastion_hostname_prefix { default = "bastion-" }
 
 
 # NFS Storage Server variables
 variable persistent_storage_server_shape { default = "VM.Standard2.2" }
-variable scratch_storage_server_shape { default = "VM.DenseIO2.24" }
-#variable storage_server_shape { default = "" }
-#variable storage_server_node_count { default = 2 }
+variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
 variable storage_server_hostname_prefix { default = "storage-server-" }
 
 # Client nodes variables
@@ -32,12 +30,13 @@ variable client_node_hostname_prefix { default = "client-" }
 
 
 # FS related variables
-variable mount_point { default = "/mnt/fs" }
+variable mount_point { default = "/mnt/nfs" }
 # In kilobytes.  128 = 128KB, 256 = 256KB, 1024 = 1024KB (1MB)
 variable block_size { default = "256" }
 
 
-# This is currently used for the deployment.  
+# This is currently used for Terraform deployment.
+# Valid values for Availability Domain: 0,1,2, if the region has 3 ADs, else use 0.
 variable "ad_number" {
   default = "-1"
 }
@@ -50,12 +49,12 @@ variable "storage_tier_1_disk_perf_tier" {
 
 variable "storage_tier_1_disk_count" {
   default = "6"
-  description = "Number of block volume disk per file server. Each attached as JBOD (no RAID)."
+  description = "Number of block volume disk for entire filesystem (not per file server). If var.fs_ha  was set to true, then these Block volumes will be shared by both NFS file servers, otherwise a single node NFS server will be deployed with Block volumes. Block volumes are more durable and highly available."
 }
 
 variable "storage_tier_1_disk_size" {
   default = "800"
-  description = "Select size in GB for each block volume/disk, min 50."
+  description = "Select size in GB for each block volume/disk, min 50.  Total NFS filesystem raw capacity will be NUMBER OF BLOCK VOLUMES * BLOCK VOLUME SIZE."
 }
 
 
@@ -80,10 +79,10 @@ locals {
   storage_server_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? true : false)
   storage_server_hpc_shape = (length(regexall("HPC2", local.derived_storage_server_shape)) > 0 ? true : false)
   standard_storage_node_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? (length(regexall("Standard",local.derived_storage_server_shape)) > 0 ? true : false) : false)
-  storage_subnet_domain_name="${data.oci_core_subnet.private_storage_subnet.dns_label}.${data.oci_core_vcn.hfs.dns_label}.oraclevcn.com"
-  vcn_domain_name="${data.oci_core_vcn.hfs.dns_label}.oraclevcn.com"
+  storage_subnet_domain_name="${data.oci_core_subnet.private_storage_subnet.dns_label}.${data.oci_core_vcn.nfs.dns_label}.oraclevcn.com"
+  vcn_domain_name="${data.oci_core_vcn.nfs.dns_label}.oraclevcn.com"
   storage_server_filesystem_vnic_hostname_prefix = "${var.storage_server_hostname_prefix}fs-vnic-"
-  filesystem_subnet_domain_name="${data.oci_core_subnet.private_fs_subnet.dns_label}.${data.oci_core_vcn.hfs.dns_label}.oraclevcn.com"
+  filesystem_subnet_domain_name="${data.oci_core_subnet.private_fs_subnet.dns_label}.${data.oci_core_vcn.nfs.dns_label}.oraclevcn.com"
 
   # If ad_number is non-negative use it for AD lookup, else use ad_name.
   # Allows for use of ad_number in TF deploys, and ad_name in ORM.
@@ -112,7 +111,7 @@ variable "imagesC" {
 // Kernel Version: 4.14.35-1902.10.4.el7uek.x86_64
 
 variable "images" {
-  type = "map"
+  type = map(string)
   default = {
     ap-melbourne-1 = "ocid1.image.oc1.ap-melbourne-1.aaaaaaaa3fvafraincszwi36zv2oeangeitnnj7svuqjbm2agz3zxhzozadq"
     ap-mumbai-1 = "ocid1.image.oc1.ap-mumbai-1.aaaaaaaabyd7swhvmsttpeejgksgx3faosizrfyeypdmqdghgn7wzed26l3q"
@@ -235,8 +234,12 @@ variable "create_compute_nodes" {
   default = "false"
 }
 
+# This are used by TF only.  Not by Resource manager.
 variable storage_primary_vnic_vip_private_ip { default = "10.0.3.200" }
 variable storage_secondary_vnic_vip_private_ip { default = "10.0.6.200" }
+
+# This is only used for RM GUI logic.  Do not change the default value.
+variable "rm_only_storage_vip_private_ip" {  default = "" }
 
 
 # Generate a new strong password for hacluster user
@@ -256,3 +259,4 @@ resource "random_string" "hacluster_user_password" {
 output "hacluster_user_password" {
   value = ["${random_string.hacluster_user_password.result}"]
 }
+

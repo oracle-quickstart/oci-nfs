@@ -4,10 +4,10 @@
 {% endfor %}
 {% for item in groups['storage'] %}
 {% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
-{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} storage-node-{{ loop.index }} storage-node-{{ loop.index }}.local.vcn hfs-storage-node-{{ loop.index }} hfs-storage-node-{{ loop.index }}.local.vcn
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} storage-node-{{ loop.index }} storage-node-{{ loop.index }}.local.vcn nfs-storage-node-{{ loop.index }} nfs-storage-node-{{ loop.index }}.local.vcn
 {% endfor %}
 {% for item in groups['compute'] %}
 {% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
-{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} compute-node-{{ loop.index }} compute-node-{{ loop.index }}.local.vcn hfs-compute-node-{{ loop.index }} hfs-compute-node-{{ loop.index }}.local.vcn
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} compute-node-{{ loop.index }} compute-node-{{ loop.index }}.local.vcn nfs-compute-node-{{ loop.index }} nfs-compute-node-{{ loop.index }}.local.vcn
 {% endfor %}
 

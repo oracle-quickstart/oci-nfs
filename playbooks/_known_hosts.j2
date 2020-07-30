@@ -21,8 +21,8 @@
 	storage-node-{{ number }}-rdma ecdsa-sha2-nistp256 {{ key }}
 	storage-node-{{ number }}.local.vcn ecdsa-sha2-nistp256 {{ key }}
 	{{ hostvars[item]['ansible_fqdn'] }} ecdsa-sha2-nistp256 {{ key }}
-	hfs-storage-node-{{ number }}.local.vcn ecdsa-sha2-nistp256 {{ key }}
-	hfs-storage-node-{{ number }} ecdsa-sha2-nistp256 {{ key }}
+	nfs-storage-node-{{ number }}.local.vcn ecdsa-sha2-nistp256 {{ key }}
+	nfs-storage-node-{{ number }} ecdsa-sha2-nistp256 {{ key }}
 
 {% endfor %}
 
@@ -39,7 +39,7 @@
 	compute-node-{{ number }}-rdma ecdsa-sha2-nistp256 {{ key }}
 	compute-node-{{ number }}.local.vcn ecdsa-sha2-nistp256 {{ key }}
 	{{ hostvars[item]['ansible_fqdn'] }} ecdsa-sha2-nistp256 {{ key }}
-	hfs-compute-node-{{ number }}.local.vcn ecdsa-sha2-nistp256 {{ key }}
-	hfs-compute-node-{{ number }} ecdsa-sha2-nistp256 {{ key }}
+	nfs-compute-node-{{ number }}.local.vcn ecdsa-sha2-nistp256 {{ key }}
+	nfs-compute-node-{{ number }} ecdsa-sha2-nistp256 {{ key }}
 
 {% endfor %}

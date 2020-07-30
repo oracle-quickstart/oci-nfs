@@ -21,6 +21,8 @@ groupings:
     - use_marketplace_image
     - block_size
     - fs_name
+    - storage_secondary_vnic_vip_private_ip
+    - storage_primary_vnic_vip_private_ip
   - title: "NFS Filesystem Configuration"
     visible: true
     variables:
@@ -39,8 +41,8 @@ groupings:
     - vcn_id
     - bastion_subnet_id
     - storage_subnet_id
-    - storage_vip_private_ip
-    - client_subnet_id
+    - fs_subnet_id
+    - rm_only_storage_vip_private_ip
   - title: "Bastion Instance Configuration"
     visible: false
     variables:
@@ -145,10 +147,6 @@ variables:
     - "VM.Standard2.8"
     - "VM.Standard2.16"
     - "VM.Standard2.24"
-    - "VM.GPU2.1"
-    - "VM.GPU3.1"
-    - "VM.GPU3.2"
-    - "VM.GPU3.4"
     - "BM.Standard2.52"
     - "VM.Standard.E2.1"
     - "VM.Standard.E2.2"
@@ -156,9 +154,6 @@ variables:
     - "VM.Standard.E2.8"
     - "BM.Standard.E2.64"
     - "BM.Standard.E2.128"
-    - "BM.GPU2.2"
-    - "BM.GPU3.8"
-    - "DVH.Standard2.52"
     visible:
       and:
         - eq:
@@ -277,12 +272,12 @@ variables:
     - "Persistent"
     required: true
     default: "Persistent"
-    description: "Select filesystem type to deploy. Scratch filesystem will use Compute shapes with local NVMe SSD disks. Persistent filesystem will use durable and highly available Block Volume Storage"
+    description: "Select filesystem type to deploy. Scratch filesystem will use compute shapes (VM/BM.DenseIO/BM.HPC2.36) and their local NVMe SSD disks for NFS server. Persistent filesystem will use Standard (VM/BM.Standard*) compute shapes(no local NVMe) and network attached Block Volume Storage which are more durable and highly available."
 
   fs_ha:
     type: boolean
     title: "Active/Passive Highly Available"
-    description: "Select checkbox, to create an Active/Passive Highly Available two node NFS file servers"
+    description: "Select checkbox, to create an Active/Passive Highly Available NFS file server (Two nodes)"
     required: true
     default: false
     visible:
@@ -368,7 +363,7 @@ variables:
   storage_subnet_id:
     type: oci:core:subnet:id
     title: "Storage Subnet"
-    description: "Select Subnet to access Block Volmes or local SSDs storage. Ensure the Subnet is in the same Availability Domain selected above"
+    description: "Select subnet to deploy NFS servers. This will be the primary subnet used by the server to  access boot/OS disk and network attached data Block Volumes. Ensure the Subnet is in the same Availability Domain selected above."
     dependsOn:
       compartmentId: ${compartment_ocid}
       vcnId: ${vcn_id}
@@ -376,10 +371,21 @@ variables:
     visible: ${use_existing_vcn}
     required: true
 
-  storage_vip_private_ip:
+  fs_subnet_id:
+    type: oci:core:subnet:id
+    title: "NFS Client nodes Subnet"
+    description: "Select private subnet for NFS client nodes. If you plan to use BM.Standard* shape for NFS Server (see below), then select a subnet which is different from Storage Subnet above else set subnet to be same as Storage Subnet. This Deployment only supports assumes client subnet in a private subnet in the same VCN and same availability domain as server nodes. However you can create NFS client in other subnets or outside VCN or another AD and mount the filesystem provided they have access to NFS servers."
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+      vcnId: ${vcn_id}
+      hidePublicSubnet: ${hide_public_subnet}
+    visible: ${use_existing_vcn}
+    required: true
+
+  rm_only_storage_vip_private_ip:
     type: string
     title: "Virtual IP for HA (Highly Availability)"
-    description: "Virtual IP for HA (Highly Availability). Provide a private IP from subnet used to provision NFS file servers. Make sure its an IP which is not already used."
+    description: "Virtual IP for HA (Highly Availability). Provide an unused private IP from Storage Subnet CIDR, if NFS Server shape selected is BM.Standard* else provide an unused private IP from NFS Client nodes Subnet CIDR."
     required: true
     default: "10.0.3.200"
     visible:
@@ -390,13 +396,3 @@ variables:
           - ${fs_type}
           - "Persistent"
 
-  client_subnet_id:
-    type: oci:core:subnet:id
-    title: "NFS Client nodes Subnet"
-    description: "Select Subnet for NFS client nodes. Template assumes client subnet is a private subnet in the same VCN and same availability domain as server nodes"
-    dependsOn:
-      compartmentId: ${compartment_ocid}
-      vcnId: ${vcn_id}
-      hidePublicSubnet: ${hide_public_subnet}
-    visible: ${use_existing_vcn}
-    required: true

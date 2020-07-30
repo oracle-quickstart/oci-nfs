@@ -15,7 +15,7 @@ resource "oci_core_private_ip" "storage_vip_private_ip" {
     count = var.fs_ha ? 1 : 0
 
     #Required
-vnic_id = "${(local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0) : element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)) : element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0))}"
+    vnic_id = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0) : element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)) : element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0))
 
     #Optional
     display_name = "storage-vip"
