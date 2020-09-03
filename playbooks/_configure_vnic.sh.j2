@@ -56,11 +56,11 @@ if [ "{{ fs_ha }}" = "true" ]; then
   if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
     vnicId=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].vnicId' | sed 's/"//g' ` ; echo $vnicId
     nfs_server_ip="{{ nfs_server_ip }}"
-#/root/secondary_vnic_all_configure.sh -c -e $nfs_server_ip $vnicId
+    #/root/secondary_vnic_all_configure.sh -c -e $nfs_server_ip $vnicId
   else
     vnicId=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[0].vnicId' | sed 's/"//g' ` ; echo $vnicId
     nfs_server_ip="{{ nfs_server_ip }}"
-#/root/secondary_vnic_all_configure.sh -c -e $nfs_server_ip $vnicId
+    #/root/secondary_vnic_all_configure.sh -c -e $nfs_server_ip $vnicId
   fi
 else
   echo "non-HA setup"

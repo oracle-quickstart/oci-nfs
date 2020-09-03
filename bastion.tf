@@ -21,7 +21,8 @@ locals {
 
 locals {
   nfs=(length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
-  nfs_server_ip=(var.fs_ha ? (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? var.storage_primary_vnic_vip_private_ip : var.storage_secondary_vnic_vip_private_ip) : var.storage_primary_vnic_vip_private_ip) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0))
+  nfs_server_ip=(var.fs_ha ? (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? var.storage_primary_vnic_vip_private_ip : var.storage_secondary_vnic_vip_private_ip) : var.storage_primary_vnic_vip_private_ip ) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )
+
 }
 
 data "template_file" "bastion_config" {

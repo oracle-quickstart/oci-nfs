@@ -36,9 +36,11 @@ make_filesystem()
 }
 
 create_volume_group() {
+
   # Required to control and support lvm activate via PCS.
   # https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/configuring_and_managing_high_availability_clusters/assembly_configuring-active-passive-nfs-server-in-a-cluster-configuring-and-managing-high-availability-clusters#proc_configuring-lvm-volume-with-ext4-file-system-configuring-ha-nfs
-##sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf
+  # Update of /etc/lvm/lvm.conf moved to ansible code.
+  ##sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf
   # Do the below on each node, if manually required. 
   #vgchange --systemid nfs-1 vg_nfs_disk
   dataalignment=$(({{ block_size }})); echo $dataalignment;
@@ -50,7 +52,26 @@ create_volume_group() {
     vgextend $vg_nfs_name /dev/$disk
   fi
   vgdisplay
-  #vgchange --systemid nfs-1 vg_nfs_disk
+
+}
+
+find_disks()
+{
+  disk_name="disk"
+  vg_nfs_name="vg_nfs_${disk_name}"
+  disk_counter=1
+  count=1
+  disk_lst=$1
+  # Configure physical volumes and volume group
+  for disk in $disk_lst
+  do
+    create_volume_group
+    disk_counter=$((disk_counter+1))
+    count=$((count+1))
+  done
+
+  lvm_stripes_cnt=$((disk_counter-1))
+  make_filesystem
 }
 
 configure_disks()
@@ -60,70 +81,44 @@ configure_disks()
   nvme_cnt=$(ls /dev/ | grep nvme | grep n1 | wc -l)
 
   if [ $nvme_cnt -gt 0 ]; then
-
-  disk_name="disk"
-  vg_nfs_name="vg_nfs_${disk_name}"
-  disk_counter=1
-  count=1
-  # Configure physical volumes and volume group
-      for disk in $nvme_lst
-      do
-          create_volume_group
-          disk_counter=$((disk_counter+1))
-          count=$((count+1))
-      done
-
-  lvm_stripes_cnt=$((disk_counter-1))
-  make_filesystem
-
-
+    # call function
+    find_disks "$nvme_lst"
   else
 
-      # Wait for block-attach of the Block volumes to complete. Terraform then creates the below file on server nodes of cluster.
-      while [ ! -f /tmp/block-attach.complete ]
-        do
-          sleep 60s
-          echo "Waiting for block-attach via Terraform to  complete ..."
-        done
+    # Wait for block-attach of the Block volumes to complete. Terraform then creates the below file on server nodes of cluster.
+    while [ ! -f /tmp/block-attach.complete ]
+    do
+      sleep 60s
+      echo "Waiting for block-attach via Terraform to  complete ..."
+    done
 
+    # Gather list of block devices for brick config
+    blk_lst=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | awk '{ print $1 }' | sort)
+    blk_cnt=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | wc -l)
 
-      # Gather list of block devices for brick config
-      blk_lst=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | awk '{ print $1 }' | sort)
-      blk_cnt=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | wc -l)
-
-      disk_name="disk"
-      vg_nfs_name="vg_nfs_${disk_name}"
-      # reset the counters.
-      disk_counter=1
-      count=1
-      # Configure physical volumes and volume group
-      for disk in $blk_lst
-      do
-        create_volume_group
-        disk_counter=$((disk_counter+1))
-        count=$((count+1))
-      done
-      lvm_stripes_cnt=$((disk_counter-1))
-      make_filesystem
+    # call function
+    find_disks "$blk_lst"
 
   fi
-
 }
 
 
 
 
-
+##################
 # Start of script
+##################
+
 set -x
+
 # block_size is expected be to numerical only, but still check and remove k,K,kb,KB them, if they exist.
 lvm_stripe_size=`echo {{ block_size }} | gawk -F"k|K|KB|kb" ' { print $1 }'` ;
 echo $lvm_stripe_size;
 
-
 configure_node
 configure_disks
 
+# configure NFS exports for standalone NFS server.  If its NFS with HA, the logic is written in install_ha_config.sh script.
 if [ "{{ fs_ha }}" = "true" ]; then
 
   echo "NFS config logic in install_ha_config.sh file, will be called later in deployment"

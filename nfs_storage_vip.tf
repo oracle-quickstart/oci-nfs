@@ -27,11 +27,11 @@ resource "oci_core_private_ip" "storage_vip_private_ip" {
 # All-VNICs: ${join(" ", data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id)}
 # prim-vnic-id: ${element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0)}
 # path for 2nd VNIC is different from prim-vnic.
-# secondary_vnic: ${element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0))}
+# secondary_vnic: ${element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)    }
 
-output "NFS-HA-VIP-Private-IP" {
+output "NFS-Server-IP-to-Mount" {
 value = <<END
-  ${local.nfs_server_ip} (Only applicable, if HA was enabled, else its IP of single node NFS server)
+  ${local.nfs_server_ip} (IP for NFS clients to use to mount.)
 END
 }
 
@@ -57,3 +57,5 @@ resource "oci_core_vnic_attachment" "storage_server_secondary_vnic_attachment" {
   # set to 1, if you want to use 2nd physical NIC for this VNIC
   nic_index = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? "0" : "1") : "0")
 }
+
+
