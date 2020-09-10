@@ -117,7 +117,7 @@ variables:
     description: "Bastion hostname prefix "
 
   scratch_storage_server_shape:
-    title: "Storage Server Compute Shape"
+    title: "NFS Storage Server Compute Shape"
     description: "Shape for storage server instances. DenseIO shapes come with local NVMe SSDs which will be used for storage."
     default: "BM.DenseIO2.52"
     required: true
@@ -135,7 +135,7 @@ variables:
           - "Scratch"
 
   persistent_storage_server_shape:
-    title: "Storage Server Compute Shape"
+    title: "NFS Storage Server Compute Shape"
     description: "Shape for storage server instances."
     default: "BM.Standard2.52"
     required: true
@@ -362,8 +362,8 @@ variables:
 
   storage_subnet_id:
     type: oci:core:subnet:id
-    title: "Storage Subnet"
-    description: "Select subnet to deploy NFS servers. This will be the primary subnet used by the server to  access boot/OS disk and network attached data Block Volumes. Ensure the Subnet is in the same Availability Domain selected above."
+    title: "NFS Server Subnet"
+    description: "Select subnet to deploy NFS servers. This will be the primary subnet used by the server to access boot/OS disk and network attached data Block Volumes. Ensure the Subnet is in the same Availability Domain selected above.  Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
     dependsOn:
       compartmentId: ${compartment_ocid}
       vcnId: ${vcn_id}
@@ -374,7 +374,7 @@ variables:
   fs_subnet_id:
     type: oci:core:subnet:id
     title: "NFS Client nodes Subnet"
-    description: "Select private subnet for NFS client nodes. If you plan to use BM.Standard* shape for NFS Server (see below), then select a subnet which is different from Storage Subnet above else set subnet to be same as Storage Subnet. This Deployment only supports assumes client subnet in a private subnet in the same VCN and same availability domain as server nodes. However you can create NFS client in other subnets or outside VCN or another AD and mount the filesystem provided they have access to NFS servers."
+    description: "Select private subnet for NFS client nodes. If you plan to use BM.Standard* shape for NFS server (see below), then select a subnet which is different from NFS server subnet above. For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance. If NFS Server shape selected is any VM .x or BM.HPC2.36, then set it to NFS server subnet. This deployment only supports client in a private subnet in the same VCN and same availability domain as server nodes. However you can create NFS client in other subnets or outside VCN or another AD and mount the file system. Refer to network architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
     dependsOn:
       compartmentId: ${compartment_ocid}
       vcnId: ${vcn_id}
@@ -385,7 +385,7 @@ variables:
   rm_only_ha_vip_private_ip:
     type: string
     title: "Virtual IP for HA (Highly Availability)"
-    description: "Virtual IP to assign to Active node in an Active/Passive HA (Highly Availability). Provide an unused private IP from FS Subnet CIDR (subnet used by NFS clients), if NFS Server shape selected is Baremetal (except BM.HPC2.36) else provide an unused private IP from Storage Subnet CIDR (primary subnet used by NFS server nodes)."
+    description: "Floating Virtual IP which gets assigned to an active node in an active/passive HA cluster.  If NFS Server shape selected is Baremetal (except BM.HPC), then provide an unused private IP from the subnet to be used by NFS clients in the same VCN. For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance.  NFS clients use this IP to connect to NFS cluster. If NFS Server shape selected is any VM .x or BM.HPC2.36, then provide an unused private IP from subnet to be used to install NFS servers (primary subnet used by NFS server nodes). Refer to network architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
     required: true
     default: "10.0.3.200"
     visible:
