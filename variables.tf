@@ -31,8 +31,9 @@ variable client_node_hostname_prefix { default = "client-" }
 
 # FS related variables
 variable mount_point { default = "/mnt/nfs" }
-# In kilobytes.  128 = 128KB, 256 = 256KB, 1024 = 1024KB (1MB)
-variable block_size { default = "256" }
+# 
+# LVM block/stripe size. In kilobytes. LVM Default is 64 (64KB)  128 = 128KB, 256 = 256KB, 1024 = 1024KB (1MB)
+variable block_size { default = "64" }
 
 
 # This is currently used for Terraform deployment.
@@ -239,7 +240,7 @@ variable storage_primary_vnic_vip_private_ip { default = "10.0.3.200" }
 variable storage_secondary_vnic_vip_private_ip { default = "10.0.6.200" }
 
 # This is only used for RM GUI logic.  Do not change the default value.
-variable "rm_only_storage_vip_private_ip" {  default = "" }
+variable "rm_only_ha_vip_private_ip" {  default = "" }
 
 
 # Generate a new strong password for hacluster user

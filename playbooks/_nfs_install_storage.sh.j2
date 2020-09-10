@@ -23,7 +23,7 @@ make_filesystem()
     mount_point="/mnt/nfsshare"
     mkdir -p ${mount_point}
     # Temporary mount to create directories needed by ocf::heartbeat:exportfs
-    mount -t xfs -o noatime,inode64,nobarrier /dev/${vg_nfs_name}/${disk_name} ${mount_point}
+    mount -t xfs -o noatime,inode64,nobarrier,uquota,prjquota /dev/${vg_nfs_name}/${disk_name} ${mount_point}
     df -h
     mkdir -p ${mount_point}/exports
     mkdir -p ${mount_point}/exports/export1
@@ -44,10 +44,13 @@ create_volume_group() {
   # Do the below on each node, if manually required. 
   #vgchange --systemid nfs-1 vg_nfs_disk
   dataalignment=$(({{ block_size }})); echo $dataalignment;
-  pvcreate --dataalignment $dataalignment  /dev/$disk
+  #pvcreate --dataalignment $dataalignment  /dev/$disk
+  pvcreate  /dev/$disk
+  pvdisplay
   physicalextentsize="{{ block_size }}K";  echo $physicalextentsize
   if [ $disk_counter -eq 1  ]; then
-    vgcreate  --physicalextentsize $physicalextentsize $vg_nfs_name /dev/$disk
+    #vgcreate  --physicalextentsize $physicalextentsize $vg_nfs_name /dev/$disk
+    vgcreate $vg_nfs_name /dev/$disk
   else
     vgextend $vg_nfs_name /dev/$disk
   fi
@@ -111,12 +114,26 @@ configure_disks()
 
 set -x
 
+
+coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l`
+socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | sort -un | tail -1)+1))`
+if [ $((socketCount*coreIdCount)) -ge 24  ]; then
+   sed -i "s/#RPCNFSDCOUNT=.*/RPCNFSDCOUNT=16/g" /etc/sysconfig/nfs
+   # The above change require restart of systemctl restart  nfs-server, which will happen as part of NFS setup.
+fi
+
+
 # block_size is expected be to numerical only, but still check and remove k,K,kb,KB them, if they exist.
 lvm_stripe_size=`echo {{ block_size }} | gawk -F"k|K|KB|kb" ' { print $1 }'` ;
 echo $lvm_stripe_size;
 
 configure_node
 configure_disks
+
+# required for quota information to be sent from server to clients - read only.
+systemctl enable rpc-rquotad
+systemctl start rpc-rquotad
+
 
 # configure NFS exports for standalone NFS server.  If its NFS with HA, the logic is written in install_ha_config.sh script.
 if [ "{{ fs_ha }}" = "true" ]; then

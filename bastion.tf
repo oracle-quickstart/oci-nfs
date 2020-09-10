@@ -20,8 +20,10 @@ locals {
 }
 
 locals {
+  derived_storage_primary_vnic_vip_private_ip=((var.use_existing_vcn || length(var.rm_only_ha_vip_private_ip) > 0) ? var.rm_only_ha_vip_private_ip : var.storage_primary_vnic_vip_private_ip)
+  derived_storage_secondary_vnic_vip_private_ip=((var.use_existing_vcn || length(var.rm_only_ha_vip_private_ip) > 0) ? var.rm_only_ha_vip_private_ip : var.storage_secondary_vnic_vip_private_ip)
   nfs=(length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
-  nfs_server_ip=(var.fs_ha ? (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? var.storage_primary_vnic_vip_private_ip : var.storage_secondary_vnic_vip_private_ip) : var.storage_primary_vnic_vip_private_ip ) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )
+  nfs_server_ip=(var.fs_ha ? (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? local.derived_storage_primary_vnic_vip_private_ip : local.derived_storage_secondary_vnic_vip_private_ip) : local.derived_storage_primary_vnic_vip_private_ip ) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )
 
 }
 

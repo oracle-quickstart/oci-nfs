@@ -281,7 +281,7 @@ function configure_vip_move {
     device="${filesystem_device}" \
     directory="${filesystem_dir}" \
     fstype="${filesystem_type}" \
-    options="noatime,inode64,nobarrier" \
+    options="noatime,inode64,nobarrier,uquota,prjquota" \
     $pcs_group_parameter
 
     pcs -f /root/${pcs_cfg} resource create ${service_name}  nfsserver \

@@ -42,7 +42,7 @@ groupings:
     - bastion_subnet_id
     - storage_subnet_id
     - fs_subnet_id
-    - rm_only_storage_vip_private_ip
+    - rm_only_ha_vip_private_ip
   - title: "Bastion Instance Configuration"
     visible: false
     variables:
@@ -382,10 +382,10 @@ variables:
     visible: ${use_existing_vcn}
     required: true
 
-  rm_only_storage_vip_private_ip:
+  rm_only_ha_vip_private_ip:
     type: string
     title: "Virtual IP for HA (Highly Availability)"
-    description: "Virtual IP for HA (Highly Availability). Provide an unused private IP from Storage Subnet CIDR, if NFS Server shape selected is BM.Standard* else provide an unused private IP from NFS Client nodes Subnet CIDR."
+    description: "Virtual IP to assign to Active node in an Active/Passive HA (Highly Availability). Provide an unused private IP from FS Subnet CIDR (subnet used by NFS clients), if NFS Server shape selected is Baremetal (except BM.HPC2.36) else provide an unused private IP from Storage Subnet CIDR (primary subnet used by NFS server nodes)."
     required: true
     default: "10.0.3.200"
     visible:
