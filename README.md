@@ -11,12 +11,12 @@ Given below are various high level architecture for NFS deployment.
 
 ### Virtual Machines - Active/Passive NFS Server in a High Availability Cluster
 
-![](./images/NFS_Active_Passive_HA_High_Level_Arch.png)
+![](./images/Quorum_w_NFS_Active_Passive_HA_High_Level_Arch.png)
     
 ### Bare metal Nodes - Active/Passive NFS Server in a High Availability Cluster
 Bare metal nodes comes with 2 physical NICs (2x25Gbps). To get best performance,  network bandwidth of both NICs can be used by creating 2 private subnets.  One subnet (private-storage) is used for data transfer between NFS server and OCI Block Volumes (disks) and second subnet (private-fs) is used for data transfer between NFS clients and NFS server.   
 
-![](./images/BM_NFS_Active_Passive_HA_High_Level_Arch.png)
+![](./images/Quorum_w_BM_NFS_Active_Passive_HA_High_Level_Arch.png)
 
 ### Virtual Machines - Single NFS Server with Block Volumes or Local NVMe SSDs
 
