@@ -44,7 +44,7 @@ groupings:
     - fs_subnet_id
     - rm_only_ha_vip_private_ip
   - title: "Bastion Instance Configuration"
-    visible: false
+    visible: true
     variables:
     - bastion_shape
     - bastion_node_count
@@ -69,14 +69,13 @@ groupings:
   - title: "Quorum Server Instance Configuration"
     variables:
     - quorum_server_shape
+    - quorum_server_hostname
     visible:
       and:
         - ${fs_ha}
         - eq:
           - ${fs_type}
           - "Persistent"
-
-
   - title: "NFS Client Instance Configuration - Optional"
     visible: true
     variables:
@@ -112,6 +111,7 @@ variables:
     dependsOn:
       compartmentId: ${compartment_ocid}
       imageId: ${mp_listing_resource_id}
+    visible: true
 
   bastion_node_count:
     title: "Number of bastion"
@@ -120,12 +120,14 @@ variables:
     default: 1
     minimum: 1
     required: true
+    visible: false
 
   bastion_hostname_prefix:
     type: string
     required: true
     default: "bastion-"
     description: "Bastion hostname prefix "
+    visible: true
 
   scratch_storage_server_shape:
     title: "NFS Storage Server Compute Shape"
@@ -185,7 +187,7 @@ variables:
     required: true
     default: "storage-server-"
     description: "Storage server hostname prefix "
-    visible: false
+    visible: true
 
   storage_tier_1_disk_perf_tier:
     title: "Block Volume Storage Performance tier"
@@ -260,7 +262,7 @@ variables:
     required: true
     default: "client-"
     description: "Client hostname prefix "
-    visible: false
+    visible: ${create_compute_nodes}
 
   fs_name:
     title: "Filesystem Name"
@@ -303,7 +305,7 @@ variables:
     required: true
     default: "/mnt/fs"
     description: "Mount point on client instances for selected filesystem. "
-    visible: false
+    visible: ${create_compute_nodes}
 
   ad_number:
     description: "Shadowed TF value to ignore"
@@ -417,3 +419,10 @@ variables:
       compartmentId: ${compartment_ocid}
       imageId: ${mp_listing_resource_id}
 
+  quorum_server_hostname:
+    title: "Quorum Server Hostname"
+    type: string
+    required: true
+    default: "qdevice"
+    description: "Quorum node hostname"
+    visible: true

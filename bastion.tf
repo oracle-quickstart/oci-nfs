@@ -293,7 +293,7 @@ resource "oci_core_instance" "quorum_server" {
 
   #fault_domain        = "FAULT-DOMAIN-3"
   compartment_id      = var.compartment_ocid
-  display_name        = "qdevice"
+  display_name        = var.quorum_server_hostname
   shape               = var.quorum_server_shape
 
   source_details {
@@ -303,7 +303,7 @@ resource "oci_core_instance" "quorum_server" {
 
   create_vnic_details {
     subnet_id        = local.storage_subnet_id
-    hostname_label   = "qdevice"
+    hostname_label   = var.quorum_server_hostname
     assign_public_ip    = "false"
   }
 

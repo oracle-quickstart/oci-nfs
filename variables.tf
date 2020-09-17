@@ -24,12 +24,14 @@ variable storage_server_hostname_prefix { default = "storage-server-" }
 
 # Quorum node - mandatory for HA.  Not required for single server NFS
 variable quorum_server_shape { default="VM.Standard2.2" }
+variable quorum_server_hostname { default="qdevice" }
+
 
 #Stonith/Fencing - Implemented using SBD fencing agent, shared disk/multi-attach (/dev/oracleoci/oraclevdb) and s/w watchdog (softdog)
 # https://github.com/ClusterLabs/fence-agents
 # https://github.com/ClusterLabs/fence-agents/tree/master/agents/sbd
 
-# Client/Compute nodes variables - nodes which will mount the filesystem - optional.  Set to false, if client nodes are not needed. 
+# Client/Compute nodes variables - nodes which will mount the filesystem - optional.  Set to false, if client nodes are not needed.
 variable "create_compute_nodes" { default = "true" }
 variable client_node_shape { default = "VM.Standard2.24" }
 variable client_node_count { default = 1 }
