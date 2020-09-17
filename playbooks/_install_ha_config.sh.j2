@@ -103,6 +103,8 @@ function configure_vip_move {
   # VIRTUAL IP
   TARGET_VIP={{ nfs_server_ip }}
 
+  QUORUM_NODE="{{ quorum_server_hostname }}"
+
 
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
     if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
@@ -165,6 +167,7 @@ function configure_vip_move {
   TARGET_VIP=\"${TARGET_VIP}\"
   node1vnic=\"${node1vnic}\"
   node2vnic=\"${node2vnic}\"
+  QUORUM_NODE=\"${QUORUM_NODE}\"
   " > /root/env_variables.sh
   echo "source /root/env_variables.sh" >>  /root/.bash_profile
 
@@ -249,6 +252,9 @@ function configure_vip_move {
 
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
     echo "{{ hacluster_user_password }}" | pcs cluster auth --name nfs_cluster ${NODE1} ${NODE2} -u hacluster
+
+    echo "{{ hacluster_user_password }}" | pcs cluster auth --name nfs_cluster ${QUORUM_NODE} -u hacluster
+
   fi
 
   # call function
@@ -261,19 +267,93 @@ function configure_vip_move {
   systemctl enable pacemaker;
   systemctl enable corosync;
 
+  # Start - Stonith SBD fencing config
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+
+    sbd -d /dev/oracleoci/oraclevdb create
+    # I should see the below info
+    sbd -d /dev/oracleoci/oraclevdb dump
+
+    ##==Dumping header on disk /dev/oracleoci/oraclevdb
+    ##Header version     : 2.1
+    ##UUID               : d484107e-3491-4a1d-b1ce-ea0a2ee2b649
+    ##Number of slots    : 255
+    ##Sector size        : 512
+    ##Timeout (watchdog) : 5
+    ##Timeout (allocate) : 2
+    ##Timeout (loop)     : 1
+    ##Timeout (msgwait)  : 10
+    ##==Header on disk /dev/oracleoci/oraclevdb is dumped
+
+  fi
+
+  echo softdog > /etc/modules-load.d/watchdog.conf
+  systemctl restart systemd-modules-load
+  lsmod | egrep "(wd|dog)"
+
+  sed -i "s/#SBD_DEVICE=.*/SBD_DEVICE=\"\/dev\/oracleoci\/oraclevdb\"/g"  /etc/sysconfig/sbd
+  sed -i "s/SBD_OPTS=/SBD_OPTS=\"-W\"/g" /etc/sysconfig/sbd
+  less /etc/sysconfig/sbd |  egrep "SBD_OPTS|SBD_DEVICE|SBD_DELAY_START"
+
+  systemctl enable sbd
+  # End - Stonith SBD fencing config
+
+
   cd /root;
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
 
+    # NOTE: With Stonith SBD fencing - first time starting cluster using pcs cluster start --all fails, but subsequent calls works. Similarly sometimes first time call to "pcs cluster start" fails, but subsequent calls work.  Hence the while loop.  "Don't know why.  Have reached LINBIT community.
+    pcs cluster start
+    while ( [ $? -ne 0 ] )
+    do
+      sudo pcs cluster stop --force
+      echo "waiting for pcs cluster start to come online on $NODE1"
+      sleep 15
+      pcs cluster start
+    done
 
-    pcs cluster start --all
     sleep 10s
+
+    ssh ${SSH_OPTIONS} opc@${NODE2_IP}  'sudo pcs cluster start' ;
+    while ( [ $? -ne 0 ] )
+    do
+      sudo pcs cluster stop --force
+      echo "waiting for pcs cluster start to come online on $NODE2"
+      sleep 10
+      ssh ${SSH_OPTIONS} opc@${NODE2_IP}  'sudo pcs cluster start' ;
+    done
+    sleep 15s;
+
     pcs status
+
     pcs cluster cib /root/${pcs_cfg}
-    pcs -f /root/${pcs_cfg} property set stonith-enabled=false
+
+    # Quorum node changes
+    echo "starting quorum changes..."
+    pcs -f /root/${pcs_cfg} quorum device add model net host=${QUORUM_NODE} algorithm=ffsplit
+    pcs -f /root/${pcs_cfg}  quorum config
+    pcs -f /root/${pcs_cfg}  quorum status
+    pcs -f /root/${pcs_cfg}  quorum device status
+    echo "ending quorum changes."
+    # end
+
+    #pcs -f /root/${pcs_cfg} property set stonith-enabled=false
+    pcs -f /root/${pcs_cfg} property set stonith-enabled=true
+    pcs -f /root/${pcs_cfg} property set stonith-watchdog-timeout=10
     # In 2 nodes, there is no quorum. hence no-quorum-policy=ignore  instead of no-quorum-policy=stop
-    pcs -f /root/${pcs_cfg} property set no-quorum-policy=ignore
-    pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=200
+    # With 3rd Quorum node - set no-quorum-policy=stop
+    pcs -f /root/${pcs_cfg} property set no-quorum-policy=stop
+    # Do not change the resource-stickiness value from 100. Using value like 200 resulted in cluster not fencing/stonithing the node which is network isolated during split brain test.
+    pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=100
     pcs -f /root/${pcs_cfg} resource defaults migration-threshold=1
+
+
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0
+    # A 5 seconds delay was added to NODE2 to ensure there is no race condition - fence-race.
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5
+
+    pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE1 avoids $NODE1
+    pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE2 avoids $NODE2
 
     pcs -f /root/${pcs_cfg} resource create $lv_name ocf:heartbeat:LVM-activate vgname=$vg_name vg_access_mode=system_id $pcs_group_parameter
 
@@ -288,54 +368,54 @@ function configure_vip_move {
     nfs_shared_infodir=${filesystem_dir}/nfsinfo nfs_no_notify=true \
     $pcs_group_parameter
 
-pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_1 exportfs \
---after nfs-daemon \
-clientspec=${exportfs_client_spec_1} \
-options=${options} \
-directory=${nfs_root_dir} \
-fsid=0  $pcs_group_parameter
+    pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_1 exportfs \
+    --after nfs-daemon \
+    clientspec=${exportfs_client_spec_1} \
+    options=${options} \
+    directory=${nfs_root_dir} \
+    fsid=0  $pcs_group_parameter
 
-# We need to use  " --force" to allow the same root folder to be exported for multiple subnets using fsid=0
-# Error: Value '0' of option 'fsid' is not unique across 'ocf:heartbeat:exportfs' resources. Following resources are configured with the same value of the instance attribute: 'nfs-root_client_spec_1', use --force to override
-pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_2 exportfs \
---after nfs-root_client_spec_1 \
-clientspec=${exportfs_client_spec_2} \
-options=${options} \
-directory=${nfs_root_dir} \
-fsid=0  $pcs_group_parameter  --force
+    # We need to use  " --force" to allow the same root folder to be exported for multiple subnets using fsid=0
+    # Error: Value '0' of option 'fsid' is not unique across 'ocf:heartbeat:exportfs' resources. Following resources are configured with the same value of the instance attribute: 'nfs-root_client_spec_1', use --force to override
+    pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_2 exportfs \
+    --after nfs-root_client_spec_1 \
+    clientspec=${exportfs_client_spec_2} \
+    options=${options} \
+    directory=${nfs_root_dir} \
+    fsid=0  $pcs_group_parameter  --force
 
-pcs -f /root/${pcs_cfg} resource create export1_client_spec_1 exportfs \
---after nfs-root_client_spec_2  \
-clientspec=${exportfs_client_spec_1} \
-options=${options} \
-directory=${nfs_export1_dir} \
-fsid=1 $pcs_group_parameter  --force
+    pcs -f /root/${pcs_cfg} resource create export1_client_spec_1 exportfs \
+    --after nfs-root_client_spec_2  \
+    clientspec=${exportfs_client_spec_1} \
+    options=${options} \
+    directory=${nfs_export1_dir} \
+    fsid=1 $pcs_group_parameter  --force
 
 
-pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
---after export1_client_spec_1 \
-clientspec=${exportfs_client_spec_2} \
-options=${options} \
-directory=${nfs_export1_dir} \
-fsid=1  $pcs_group_parameter  --force
+    pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
+    --after export1_client_spec_1 \
+    clientspec=${exportfs_client_spec_2} \
+    options=${options} \
+    directory=${nfs_export1_dir} \
+    fsid=1  $pcs_group_parameter  --force
 
-if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
 
-pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_3 exportfs \
---after export1_client_spec_2 \
-clientspec=${exportfs_client_spec_3} \
-options=${options} \
-directory=${nfs_root_dir} \
-fsid=0  $pcs_group_parameter  --force
+       pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_3 exportfs \
+       --after export1_client_spec_2 \
+       clientspec=${exportfs_client_spec_3} \
+       options=${options} \
+       directory=${nfs_root_dir} \
+       fsid=0  $pcs_group_parameter  --force
 
-pcs -f /root/${pcs_cfg} resource create export1_client_spec_3 exportfs \
---after nfs-root_client_spec_3 \
-clientspec=${exportfs_client_spec_3} \
-options=${options} \
-directory=${nfs_export1_dir} \
-fsid=1  $pcs_group_parameter  --force
+       pcs -f /root/${pcs_cfg} resource create export1_client_spec_3 exportfs \
+       --after nfs-root_client_spec_3 \
+       clientspec=${exportfs_client_spec_3} \
+       options=${options} \
+       directory=${nfs_export1_dir} \
+       fsid=1  $pcs_group_parameter  --force
 
-fi
+    fi
 
 
     pcs -f /root/${pcs_cfg} resource create ${ipaddr2_vip_name} ocf:heartbeat:IPaddr2 ip=${TARGET_VIP} cidr_netmask=${cidr_netmask} op monitor interval=20s $pcs_group_parameter
@@ -346,47 +426,38 @@ fi
     pcs -f /root/${pcs_cfg} constraint colocation add ${filesystem_name} with ${lv_name} INFINITY
     pcs -f /root/${pcs_cfg} constraint order ${lv_name} then ${filesystem_name}
 
-# pcs constraint colocation add disk with ${filesystem_name} INFINITY
-# pcs constraint order disk then ${filesystem_name}
-
+    # pcs constraint colocation add disk with ${filesystem_name} INFINITY
+    # pcs constraint order disk then ${filesystem_name}
 
     pcs -f /root/${pcs_cfg} constraint colocation add ${service_name} with ${filesystem_name} INFINITY
     pcs -f /root/${pcs_cfg} constraint order ${filesystem_name} then ${service_name}
 
 
-pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
-pcs -f /root/${pcs_cfg} constraint order ${service_name} then nfs-root_client_spec_1
-pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
-pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
+    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
+    pcs -f /root/${pcs_cfg} constraint order ${service_name} then nfs-root_client_spec_1
+    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
+    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
 
-pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
-pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_2 then export1_client_spec_1
-pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
-pcs -f /root/${pcs_cfg} constraint order export1_client_spec_1 then export1_client_spec_2
+    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
+    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_2 then export1_client_spec_1
+    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
+    pcs -f /root/${pcs_cfg} constraint order export1_client_spec_1 then export1_client_spec_2
 
-if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+      pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_3 with export1_client_spec_2 INFINITY
+      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then nfs-root_client_spec_3
+      pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_3 with nfs-root_client_spec_3 INFINITY
+      pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_3 then export1_client_spec_3
+      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_3 INFINITY
+      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_3 then ${ipaddr2_vip_name}
+    else
+      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
+      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
+    fi
 
-  pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_3 with export1_client_spec_2 INFINITY
-  pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then nfs-root_client_spec_3
-
-  pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_3 with nfs-root_client_spec_3 INFINITY
-  pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_3 then export1_client_spec_3
-
-  pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_3 INFINITY
-  pcs -f /root/${pcs_cfg} constraint order export1_client_spec_3 then ${ipaddr2_vip_name}
-
-else
-
-  pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
-  pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
-
-fi
-
-
-
-# OLD one without exportfs
-##pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
-##pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
+    # OLD one without exportfs
+    ##pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
+    ##pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
 
 
   # end of if loop node = node1
@@ -395,12 +466,41 @@ fi
   # Now push the configuration so it becomes active.
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
     pcs cluster cib-push /root/${pcs_cfg}
+    echo "sleeping for 25 seconds for PCS cluster cib-push /root/${pcs_cfg} to complete"
+    sleep 25s
+
+    pcs status
+    pcs stonith sbd status --full
+    pcs stonith show --full
+    pcs property show
+    pcs resource show --full
+    pcs quorum status
+    pcs stonith list
+    #pcs stonith describe  fence_sbd
+    pcs property --all  | egrep "stonith-|watchdog"
+
+    # Changes for Quorum node
+    # corosync needs to be stop for the below to work.
+    pcs cluster stop --all
     sleep 5s
+    pcs quorum update wait_for_all=0
+    sleep 25s
+    pcs cluster start --all
+    # heuristics change not applied - Hard to validate if it makes a difference to quorum decision making.
+    ##pcs quorum device update heuristics mode=on exec_CUSTOM=/root/heuristics.sh
+    # good to do a final restart of cluster services
+    ##sleep 10s
+    ##pcs cluster stop --all
+    ##sleep 25s
+    ##pcs cluster start --all
+
   else
     # for node1 to finish the configuration
-    sleep 30s
+    echo "Waiting for node1 to finish configuring PCS. You can run pcs status to see the latest status"
+    sleep 60s
   fi
-  pcs status
+
+
 
 
 

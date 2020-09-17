@@ -22,7 +22,15 @@ variable persistent_storage_server_shape { default = "VM.Standard2.2" }
 variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
 variable storage_server_hostname_prefix { default = "storage-server-" }
 
-# Client nodes variables
+# Quorum node - mandatory for HA.  Not required for single server NFS
+variable quorum_server_shape { default="VM.Standard2.2" }
+
+#Stonith/Fencing - Implemented using SBD fencing agent, shared disk/multi-attach (/dev/oracleoci/oraclevdb) and s/w watchdog (softdog)
+# https://github.com/ClusterLabs/fence-agents
+# https://github.com/ClusterLabs/fence-agents/tree/master/agents/sbd
+
+# Client/Compute nodes variables - nodes which will mount the filesystem - optional.  Set to false, if client nodes are not needed. 
+variable "create_compute_nodes" { default = "true" }
 variable client_node_shape { default = "VM.Standard2.24" }
 variable client_node_count { default = 1 }
 variable client_node_hostname_prefix { default = "client-" }
@@ -231,9 +239,7 @@ variable "fs_subnet_id" {
   default = ""
 }
 
-variable "create_compute_nodes" {
-  default = "false"
-}
+
 
 # This are used by TF only.  Not by Resource manager.
 variable storage_primary_vnic_vip_private_ip { default = "10.0.3.200" }
@@ -257,7 +263,7 @@ resource "random_string" "hacluster_user_password" {
   override_special = "!@#-_&*=+"
 }
 
-output "hacluster_user_password" {
-  value = ["${random_string.hacluster_user_password.result}"]
-}
+
+
+
 

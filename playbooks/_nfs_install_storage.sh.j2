@@ -1,12 +1,5 @@
 
 
-
-configure_node()
-{
-  touch /var/log/CONFIG_COMPLETE
-}
-
-
 make_filesystem()
 {
     lvcreate -l 100%VG --stripes $lvm_stripes_cnt --stripesize "{{ block_size }}K" -n $disk_name $vg_nfs_name
@@ -44,21 +37,21 @@ create_volume_group() {
   # Do the below on each node, if manually required. 
   #vgchange --systemid nfs-1 vg_nfs_disk
   dataalignment=$(({{ block_size }})); echo $dataalignment;
-  #pvcreate --dataalignment $dataalignment  /dev/$disk
-  pvcreate  /dev/$disk
+  #pvcreate --dataalignment $dataalignment  $disk
+  pvcreate  $disk
   pvdisplay
   physicalextentsize="{{ block_size }}K";  echo $physicalextentsize
   if [ $disk_counter -eq 1  ]; then
-    #vgcreate  --physicalextentsize $physicalextentsize $vg_nfs_name /dev/$disk
-    vgcreate $vg_nfs_name /dev/$disk
+    #vgcreate  --physicalextentsize $physicalextentsize $vg_nfs_name $disk
+    vgcreate $vg_nfs_name $disk
   else
-    vgextend $vg_nfs_name /dev/$disk
+    vgextend $vg_nfs_name $disk
   fi
   vgdisplay
 
 }
 
-find_disks()
+process_disks()
 {
   disk_name="disk"
   vg_nfs_name="vg_nfs_${disk_name}"
@@ -77,30 +70,53 @@ find_disks()
   make_filesystem
 }
 
+find_block_volumes()
+{
+  # Wait for block-attach of the Block volumes to complete. Terraform then creates the below file on server nodes of cluster.
+  while [ ! -f /tmp/block-attach.complete ]
+  do
+    sleep 60s
+    echo "Waiting for block-attach via Terraform to  complete ..."
+  done
+
+  if [ "{{ fs_ha }}" = "true" ]; then
+      # Exclude, /dev/oracleoci/oraclevdb from the list, since it will be used for Stonith fencing.
+      # Gather list of block devices
+      # blk_lst will be full path, eg  /dev/oracleoci/oraclevdd , etc
+      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | grep -v vdb | sort)
+      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | grep -v vdb | wc -l)
+  else
+      # Gather list of block devices
+      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | sort)
+      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | wc -l)
+  fi
+
+}
+
+
+
 configure_disks()
 {
+  if [ "{{ fs_ha }}" = "true" ]; then
 
-  nvme_lst=$(ls /dev/ | grep nvme | grep n1 | sort)
-  nvme_cnt=$(ls /dev/ | grep nvme | grep n1 | wc -l)
-
-  if [ $nvme_cnt -gt 0 ]; then
+    find_block_volumes
     # call function
-    find_disks "$nvme_lst"
+    process_disks "$blk_lst"
+
   else
 
-    # Wait for block-attach of the Block volumes to complete. Terraform then creates the below file on server nodes of cluster.
-    while [ ! -f /tmp/block-attach.complete ]
-    do
-      sleep 60s
-      echo "Waiting for block-attach via Terraform to  complete ..."
-    done
+    # nvme_lst will be full path, eg  /dev/nvme0n1 ,etc
+    nvme_lst=$(ls /dev/* | grep nvme | grep n1 | sort)
+    nvme_cnt=$(ls /dev/* | grep nvme | grep n1 | wc -l)
 
-    # Gather list of block devices for brick config
-    blk_lst=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | awk '{ print $1 }' | sort)
-    blk_cnt=$(lsblk -d --noheadings | grep -v sda | grep -v nvme | wc -l)
-
-    # call function
-    find_disks "$blk_lst"
+    if [ $nvme_cnt -gt 0 ]; then
+      # call function
+      process_disks "$nvme_lst"
+    else
+      find_block_volumes
+      # call function
+      process_disks "$blk_lst"
+    fi
 
   fi
 }
@@ -118,8 +134,8 @@ set -x
 coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l`
 socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | sort -un | tail -1)+1))`
 if [ $((socketCount*coreIdCount)) -ge 24  ]; then
-   sed -i "s/#RPCNFSDCOUNT=.*/RPCNFSDCOUNT=16/g" /etc/sysconfig/nfs
-   # The above change require restart of systemctl restart  nfs-server, which will happen as part of NFS setup.
+  sed -i "s/#RPCNFSDCOUNT=.*/RPCNFSDCOUNT=16/g" /etc/sysconfig/nfs
+  # The above change require restart of systemctl restart  nfs-server, which will happen as part of NFS setup.
 fi
 
 
@@ -127,7 +143,7 @@ fi
 lvm_stripe_size=`echo {{ block_size }} | gawk -F"k|K|KB|kb" ' { print $1 }'` ;
 echo $lvm_stripe_size;
 
-configure_node
+
 configure_disks
 
 # required for quota information to be sent from server to clients - read only.
@@ -168,6 +184,7 @@ else
     exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
     exportfs_client_spec_3="${exportfs_client_spec_3_network}/${exportfs_client_spec_3_netmask}"
   fi
+
   options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
   nfs_root_dir="${filesystem_dir}/exports"
   nfs_export1_dir="${nfs_root_dir}/export1"

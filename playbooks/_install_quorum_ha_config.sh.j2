@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -x
+
+
+# https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/high_availability_add-on_reference/s1-quorumdev-haar
+
+
+# Disable firewall in ansible. 
+
+yum install pcs corosync-qnetd -y -q
+
+systemctl start pcsd.service
+systemctl enable pcsd.service
+
+
+pcs qdevice setup model net --enable --start
+
+# validate
+pcs qdevice status net --full
+
+
+# Set password for hacluster user on qdevice node also
+echo -e "{{ hacluster_user_password }}\n{{ hacluster_user_password }}" | passwd hacluster
+if [ $? -ne 0 ]; then
+  echo "Setting password value of {{ hacluster_user_password }} for hacluster failed"
+  exit 1;
+fi
+
+
+# Cannot have infinite loop when invoked by ansible, as it will stall the rest of the deployment.
+###node1_hostname="{{ storage_server_hostname_prefix }}1"
+# check if corosync is up on one of the node using netcat
+#corosync_udp_test
+###yum install nc -y -q
+###nc -vzu $node1_hostname 5405
+###while ( [ $? -ne 0 ] )
+###do
+###sleep 5s
+###nc -vzu $node1_hostname 5405
+###done
+
+# Extra time, incase multiple start of full cluster is required and for the loop to finish.
+###sleep 60s
+# Check again
+###nc -vzu $node1_hostname 5405
+###while ( [ $? -ne 0 ] )
+###do
+###sleep 5s
+###nc -vzu $node1_hostname 5405
+###done
+
+###pcs qdevice status net --full

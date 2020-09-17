@@ -35,7 +35,7 @@ data "template_file" "bastion_config" {
 }
 
 resource "oci_core_instance" "bastion" {
-  depends_on          = [ oci_core_instance.storage_server, oci_core_subnet.public, oci_core_private_ip.storage_vip_private_ip
+  depends_on          = [ oci_core_instance.storage_server, oci_core_subnet.public,  oci_core_private_ip.storage_vip_private_ip, oci_core_instance.quorum_server,
    ]
   count               = var.bastion_node_count
   availability_domain = local.ad
@@ -43,7 +43,6 @@ resource "oci_core_instance" "bastion" {
   compartment_id      = var.compartment_ocid
   shape               = var.bastion_shape
   display_name        = "${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
-  hostname_label      = "${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
   metadata = {
     ssh_authorized_keys = "${var.ssh_public_key}\n${tls_private_key.ssh.public_key_openssh}"
     user_data           = base64encode(data.template_file.bastion_config.rendered)
@@ -54,11 +53,8 @@ resource "oci_core_instance" "bastion" {
   }
   create_vnic_details {
     subnet_id = local.bastion_subnet_id
+    hostname_label      = "${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
   }
-  launch_options {
-    network_type = "VFIO"
-  }
-
 
   provisioner "file" {
     source        = "playbooks"
@@ -77,6 +73,7 @@ resource "oci_core_instance" "bastion" {
       bastion_ip = oci_core_instance.bastion[0].private_ip,
       storage = zipmap(data.oci_core_instance.storage_server.*.display_name, data.oci_core_instance.storage_server.*.private_ip),
       compute = zipmap(data.oci_core_instance.client_node.*.display_name, data.oci_core_instance.client_node.*.private_ip),
+      quorum = zipmap(data.oci_core_instance.quorum_server.*.display_name, data.oci_core_instance.quorum_server.*.private_ip),
       fs_name = var.fs_name,
       fs_type = var.fs_type,
       fs_ha = var.fs_ha,
@@ -204,17 +201,21 @@ resource "oci_core_instance" "storage_server" {
   #fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
   display_name        = "${var.storage_server_hostname_prefix}${format("%01d", count.index+1)}"
-  hostname_label      = "${var.storage_server_hostname_prefix}${format("%01d", count.index+1)}"
   shape               = local.derived_storage_server_shape
-  subnet_id           = local.storage_subnet_id
 
   source_details {
     source_type = "image"
     source_id   = local.image_id
   }
 
+  create_vnic_details {
+    subnet_id           = local.storage_subnet_id
+    hostname_label      = "${var.storage_server_hostname_prefix}${format("%01d", count.index+1)}"
+    assign_public_ip    = "false"
+  }
+
   launch_options {
-    network_type = "VFIO"
+    network_type = (length(regexall("VM.Standard.E", local.derived_storage_server_shape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
   }
 
   metadata = {
@@ -242,24 +243,26 @@ resource "oci_core_instance" "storage_server" {
 
 
 resource "oci_core_instance" "client_node" {
-  count               = var.client_node_count
+  count               = (var.create_compute_nodes ? var.client_node_count : 0)
   availability_domain = local.ad
   #fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
   display_name        = "${var.client_node_hostname_prefix}${format("%01d", count.index+1)}"
-  hostname_label      = "${var.client_node_hostname_prefix}${format("%01d", count.index+1)}"
   shape               = var.client_node_shape
-  subnet_id           = local.client_subnet_id
-
-
 
   source_details {
     source_type = "image"
     source_id   = local.image_id
   }
 
+  create_vnic_details {
+    subnet_id           = local.client_subnet_id
+    hostname_label      = "${var.client_node_hostname_prefix}${format("%01d", count.index+1)}"
+    assign_public_ip    = "false"
+  }
+
   launch_options {
-    network_type = "VFIO"
+    network_type = (length(regexall("VM.Standard.E", var.client_node_shape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
   }
 
   metadata = {
@@ -283,3 +286,48 @@ resource "oci_core_instance" "client_node" {
 }
 
 
+# Quorum node named qdevice
+resource "oci_core_instance" "quorum_server" {
+  count               = var.fs_ha ? 1 : 0
+  availability_domain = local.ad
+
+  #fault_domain        = "FAULT-DOMAIN-3"
+  compartment_id      = var.compartment_ocid
+  display_name        = "qdevice"
+  shape               = var.quorum_server_shape
+
+  source_details {
+    source_type = "image"
+    source_id   = local.image_id
+  }
+
+  create_vnic_details {
+    subnet_id        = local.storage_subnet_id
+    hostname_label   = "qdevice"
+    assign_public_ip    = "false"
+  }
+
+
+  launch_options {
+    network_type = (length(regexall("VM.Standard.E", var.quorum_server_shape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
+  }
+
+  metadata = {
+    ssh_authorized_keys = join(
+      "\n",
+      [
+        var.ssh_public_key,
+        tls_private_key.ssh.public_key_openssh
+      ]
+    )
+    user_data = "${base64encode(join("\n", list(
+        "#!/usr/bin/env bash",
+        "set -x",
+      )))}"
+    }
+
+  timeouts {
+    create = "120m"
+  }
+
+}

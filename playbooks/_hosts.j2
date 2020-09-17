@@ -10,4 +10,8 @@
 {% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
 {{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} compute-node-{{ loop.index }} compute-node-{{ loop.index }}.local.vcn nfs-compute-node-{{ loop.index }} nfs-compute-node-{{ loop.index }}.local.vcn
 {% endfor %}
+{% for item in groups['quorum'] %}
+{% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} quorum-node-{{ loop.index }} quorum-node-{{ loop.index }}.local.vcn
+{% endfor %}
 

@@ -66,7 +66,18 @@ groupings:
         - eq:
           - ${fs_type}
           - "Scratch"
-  - title: "NFS Client Instance Configuration"
+  - title: "Quorum Server Instance Configuration"
+    variables:
+    - quorum_server_shape
+    visible:
+      and:
+        - ${fs_ha}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+
+  - title: "NFS Client Instance Configuration - Optional"
     visible: true
     variables:
     - create_compute_nodes
@@ -395,4 +406,14 @@ variables:
         - eq:
           - ${fs_type}
           - "Persistent"
+
+  quorum_server_shape:
+    title: "Quorum Server Compute Shape"
+    description: "Shape for Quorum node. A minimum of 3 nodes (2 NFS Server node + 1 Quorum node) are required to ensure that a cluster always has a quorum of nodes to maintain a healthy active cluster."
+    type: oci:core:instanceshape:name
+    default: "VM.Standard2.2"
+    required: true
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+      imageId: ${mp_listing_resource_id}
 

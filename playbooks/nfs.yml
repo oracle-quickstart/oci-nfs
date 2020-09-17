@@ -1,5 +1,31 @@
 
 
+- hosts: quorum
+  become: true
+  pre_tasks:
+   - setup:
+      gather_subset:
+        - '!all'
+        - '!any'
+        - 'network'
+  tasks:
+  - name: Disable SELinux
+    selinux:
+      state: disabled
+  - name: stop firewalld
+    service:
+      name: firewalld
+      state: stopped
+      enabled: no
+    async: 30
+    poll: 0
+  - name: create install_quorum_ha_config.sh file
+    template:
+      src: _install_quorum_ha_config.sh.j2
+      dest: /home/opc/install_quorum_ha_config.sh
+  - name: execute install_quorum_ha_config.sh
+    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_quorum_ha_config.sh"
+    
 - hosts: storage
   become: true
   pre_tasks:
