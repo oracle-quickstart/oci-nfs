@@ -16,6 +16,7 @@ Quorum Node:  Using just 2 nodes in production is not recommended, since it has 
 | Quorum Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard2.1/2.2/.E2.1/.E2.2  | 
 | Stonith SBD Fencing Disk: OCI Block Volumes (/dev/oracleoci/oraclevdb) | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  | 
 | Data Volumes:  OCI Block Volumes | Yes |  min:1 , max: 31 | Shared Disk - Multi-attach Block Volume attached to both NFS Server nodes.  Create a Volume Group of all Data Volumes and an LVM using the Volume Group with Striping.  Maximum LVM capacity: 31x32TB = 992TB.  Each Data Volume Capacity: min: 50GB, Max: 32TB. | 
+| Client Node: Compute | No |  min:0  | Recommend provisioning 1 client node to test mounting of the filesystem.  For production, select compute shape based on performance requirements.  | 
 
 
 
@@ -65,7 +66,6 @@ ad_number=0
 fs_type="Persistent"
 # Set to true to create 2 node NFS server with active/passive high availability cluster.  Can only be used with fs_type="Persistent".  If set to false, a single node NFS server will be deployed.
 fs_ha="true"
-client_node_shape="VM.Standard2.2"
 # set, when fs_type="Persistent", otherwise, its value is ignored.
 persistent_storage_server_shape="BM.Standard2.52"
 # set/uncomment, when fs_type="Scratch", otherwise, its value is ignored.
@@ -76,6 +76,9 @@ storage_tier_1_disk_count="8"
 storage_tier_1_disk_size="800"
 # Disk performance tiers - "Higher Performance",  "Balanced" & "Lower Cost"
 storage_tier_1_disk_perf_tier="Higher Performance"
+create_compute_nodes=true
+client_node_shape="VM.Standard.E2.2"
+client_node_count=1
 mount_point="/mnt/nfs"
 ```
 

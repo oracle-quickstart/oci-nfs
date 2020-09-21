@@ -43,4 +43,4 @@ private_fs_subnet_dns_label=${private_fs_subnet_dns_label}
 filesystem_subnet_domain_name=${filesystem_subnet_domain_name}
 standard_storage_node_dual_nics=${standard_storage_node_dual_nics}
 private_fs_subnet_cidr_block=${private_fs_subnet_cidr_block}
-quorum_server_hostname="qdevice"
+quorum_server_hostname=${quorum_server_hostname}

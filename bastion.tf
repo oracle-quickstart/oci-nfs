@@ -94,6 +94,7 @@ resource "oci_core_instance" "bastion" {
       filesystem_subnet_domain_name = local.filesystem_subnet_domain_name,
       standard_storage_node_dual_nics = local.standard_storage_node_dual_nics,
       private_fs_subnet_cidr_block = data.oci_core_subnet.private_fs_subnet.cidr_block,
+      quorum_server_hostname = var.quorum_server_hostname,
 
     })
 
