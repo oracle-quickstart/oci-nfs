@@ -11,11 +11,10 @@ Quorum Node:  Using just 2 nodes in production is not recommended, since it has 
  
 
 | Resource Type | Mandatory |  Resource Count  | Resource Details  | 
-| :---: | :---: | :---: | :---: | 
+| :---: | :---: | :---: | :--- | 
 | NFS Servers: Compute | Yes |  2  | Bare Metal Compute shapes are recommended for best performance, since they come with 2 physical NICs.  BM.Standard2.52 &  BM.Standard.E2.52 have 2x25Gbps.  BM.Standard.E3.128 comes with 2x50Gbps. VMs are also supported.  |    
-| Resource Type | Mandatory |  Resource Count  | Resource Details  | 
 | Quorum Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard2.1/2.2/.E2.1/.E2.2  | 
-| Stonith SBD Fencing Disk: /dev/oracleoci/oraclevdb | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  | 
+| Stonith SBD Fencing Disk: OCI Block Volumes (/dev/oracleoci/oraclevdb) | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  | 
 | Data Volumes:  OCI Block Volumes | Yes |  min:1 , max: 31 | Shared Disk - Multi-attach Block Volume attached to both NFS Server nodes.  Create a Volume Group of all Data Volumes and an LVM using the Volume Group with Striping.  Maximum LVM capacity: 31x32TB = 992TB.  Each Data Volume Capacity: min: 50GB, Max: 32TB. | 
 
 
