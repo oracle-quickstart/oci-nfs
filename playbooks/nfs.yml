@@ -25,7 +25,7 @@
       dest: /home/opc/install_quorum_ha_config.sh
   - name: execute install_quorum_ha_config.sh
     command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_quorum_ha_config.sh"
-    
+
 - hosts: storage
   become: true
   pre_tasks:
@@ -162,7 +162,7 @@
       path: "{{ mount_point }}"
       src: "{{ nfs_server_ip }}:/mnt/nfsshare/exports"
       fstype: nfs
-      opts: defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
       state: mounted
   - name: set nfsshare permissions
     become: true
@@ -181,7 +181,7 @@
   - name: Mount NFSv4
     mount:
       path: "{{ mount_point }}v4"
-      src: "{{ nfs_server_ip }}:/"
+      src: "{{ nfs_server_ip }}:/mnt/nfsshare/exports"
       fstype: nfs
       opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
       state: mounted

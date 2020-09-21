@@ -40,17 +40,42 @@ options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
 nfs_root_dir="${filesystem_dir}/exports"
 nfs_export1_dir="${nfs_root_dir}/export1"
 
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
-    exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
-    exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
-    exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
-    exportfs_client_spec_3="${exportfs_client_spec_3_network}/${exportfs_client_spec_3_netmask}"
-  fi
+if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
+  exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_3="${exportfs_client_spec_3_network}/${exportfs_client_spec_3_netmask}"
+fi
 
 ha_config_dir="/home/opc/ha_config"
 
 
+echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
+echo "${nfs_root_dir} ${exportfs_client_spec_2}(${options})" >> /etc/exports
+echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
+echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
 
+# /mnt/nfsshare/exports   172.28.16.0/255.255.240.0(rw,sync,wdelay,hide,nocrossmnt,secure,no_root_squash,no_all_squash,no_subtree_check,insecure_locks,acl,no_pnfs,fsid=0,anonuid=65534,anongid=65534,sec=sys,rw,secure,no_root_squash,no_all_squash)
+
+if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  echo "${nfs_root_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
+  echo "${nfs_export1_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
+fi
+
+
+# Setup rsync to copy below files from Node1 to Node2, only if Node1 has a more updated file.  This assumes that Node1 will be used for all manual updates to the below files.
+# Configure nodes to allow ssh for root user on both nodes.
+mv /root/.ssh/authorized_keys /root/.ssh/authorized_keys.backup
+cp /home/opc/.ssh/authorized_keys /root/.ssh/authorized_keys
+cp /home/opc/.ssh/id_rsa /root/.ssh/id_rsa
+
+# cronjob to rsync files every 1 minute from Node1 to Node2.
+if [ "$LOCAL_NODE" = "$NODE1" ]; then
+  echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/exports root@${NODE2}:/etc/exports  "  >> /var/spool/cron/root
+  echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/projid root@${NODE2}:/etc/projid  "  >> /var/spool/cron/root
+  echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/projects root@${NODE2}:/etc/projects  "  >> /var/spool/cron/root
+  # tail -f /var/log/cron
+fi
 
 
 function configure_vip_move {
@@ -368,54 +393,54 @@ function configure_vip_move {
     nfs_shared_infodir=${filesystem_dir}/nfsinfo nfs_no_notify=true \
     $pcs_group_parameter
 
-    pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_1 exportfs \
-    --after nfs-daemon \
-    clientspec=${exportfs_client_spec_1} \
-    options=${options} \
-    directory=${nfs_root_dir} \
-    fsid=0  $pcs_group_parameter
+#@#pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_1 exportfs \
+#@#    --after nfs-daemon \
+#@#    clientspec=${exportfs_client_spec_1} \
+#@#    options=${options} \
+#@#    directory=${nfs_root_dir} \
+#@#    fsid=0  $pcs_group_parameter
 
     # We need to use  " --force" to allow the same root folder to be exported for multiple subnets using fsid=0
     # Error: Value '0' of option 'fsid' is not unique across 'ocf:heartbeat:exportfs' resources. Following resources are configured with the same value of the instance attribute: 'nfs-root_client_spec_1', use --force to override
-    pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_2 exportfs \
-    --after nfs-root_client_spec_1 \
-    clientspec=${exportfs_client_spec_2} \
-    options=${options} \
-    directory=${nfs_root_dir} \
-    fsid=0  $pcs_group_parameter  --force
+#@#    pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_2 exportfs \
+#@#    --after nfs-root_client_spec_1 \
+#@#    clientspec=${exportfs_client_spec_2} \
+#@#    options=${options} \
+#@#    directory=${nfs_root_dir} \
+#@#    fsid=0  $pcs_group_parameter  --force
 
-    pcs -f /root/${pcs_cfg} resource create export1_client_spec_1 exportfs \
-    --after nfs-root_client_spec_2  \
-    clientspec=${exportfs_client_spec_1} \
-    options=${options} \
-    directory=${nfs_export1_dir} \
-    fsid=1 $pcs_group_parameter  --force
+#@#    pcs -f /root/${pcs_cfg} resource create export1_client_spec_1 exportfs \
+#@#    --after nfs-root_client_spec_2  \
+#@#    clientspec=${exportfs_client_spec_1} \
+#@#    options=${options} \
+#@#    directory=${nfs_export1_dir} \
+#@#    fsid=1 $pcs_group_parameter  --force
 
 
-    pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
-    --after export1_client_spec_1 \
-    clientspec=${exportfs_client_spec_2} \
-    options=${options} \
-    directory=${nfs_export1_dir} \
-    fsid=1  $pcs_group_parameter  --force
+#@#    pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
+#@#    --after export1_client_spec_1 \
+#@#    clientspec=${exportfs_client_spec_2} \
+#@#    options=${options} \
+#@#    directory=${nfs_export1_dir} \
+#@#    fsid=1  $pcs_group_parameter  --force
 
-    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+#@#    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
 
-       pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_3 exportfs \
-       --after export1_client_spec_2 \
-       clientspec=${exportfs_client_spec_3} \
-       options=${options} \
-       directory=${nfs_root_dir} \
-       fsid=0  $pcs_group_parameter  --force
+#@#       pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_3 exportfs \
+#@#       --after export1_client_spec_2 \
+#@#       clientspec=${exportfs_client_spec_3} \
+#@#       options=${options} \
+#@#       directory=${nfs_root_dir} \
+#@#       fsid=0  $pcs_group_parameter  --force
 
-       pcs -f /root/${pcs_cfg} resource create export1_client_spec_3 exportfs \
-       --after nfs-root_client_spec_3 \
-       clientspec=${exportfs_client_spec_3} \
-       options=${options} \
-       directory=${nfs_export1_dir} \
-       fsid=1  $pcs_group_parameter  --force
+#@#       pcs -f /root/${pcs_cfg} resource create export1_client_spec_3 exportfs \
+#@#       --after nfs-root_client_spec_3 \
+#@#       clientspec=${exportfs_client_spec_3} \
+#@#       options=${options} \
+#@#       directory=${nfs_export1_dir} \
+#@#       fsid=1  $pcs_group_parameter  --force
 
-    fi
+#@#    fi
 
 
     pcs -f /root/${pcs_cfg} resource create ${ipaddr2_vip_name} ocf:heartbeat:IPaddr2 ip=${TARGET_VIP} cidr_netmask=${cidr_netmask} op monitor interval=20s $pcs_group_parameter
@@ -433,31 +458,31 @@ function configure_vip_move {
     pcs -f /root/${pcs_cfg} constraint order ${filesystem_name} then ${service_name}
 
 
-    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
-    pcs -f /root/${pcs_cfg} constraint order ${service_name} then nfs-root_client_spec_1
-    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
-    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
+#@#    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
+#@#    pcs -f /root/${pcs_cfg} constraint order ${service_name} then nfs-root_client_spec_1
+#@#    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
+#@#    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
 
-    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
-    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_2 then export1_client_spec_1
-    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
-    pcs -f /root/${pcs_cfg} constraint order export1_client_spec_1 then export1_client_spec_2
+#@#    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
+#@#    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_2 then export1_client_spec_1
+#@#    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
+#@#    pcs -f /root/${pcs_cfg} constraint order export1_client_spec_1 then export1_client_spec_2
 
-    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
-      pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_3 with export1_client_spec_2 INFINITY
-      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then nfs-root_client_spec_3
-      pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_3 with nfs-root_client_spec_3 INFINITY
-      pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_3 then export1_client_spec_3
-      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_3 INFINITY
-      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_3 then ${ipaddr2_vip_name}
-    else
-      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
-      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
-    fi
+#@#    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+#@#      pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_3 with export1_client_spec_2 INFINITY
+#@#      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then nfs-root_client_spec_3
+#@#      pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_3 with nfs-root_client_spec_3 INFINITY
+#@#      pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_3 then export1_client_spec_3
+#@#      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_3 INFINITY
+#@#      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_3 then ${ipaddr2_vip_name}
+#@#    else
+#@#      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
+#@#      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
+#@#    fi
 
     # OLD one without exportfs
-    ##pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
-    ##pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
+    pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
+    pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
 
 
   # end of if loop node = node1

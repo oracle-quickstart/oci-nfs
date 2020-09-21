@@ -198,7 +198,7 @@ resource "oci_core_instance" "storage_server" {
   count               = local.derived_storage_server_node_count
   availability_domain = local.ad
 
-  #fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
+  fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
   display_name        = "${var.storage_server_hostname_prefix}${format("%01d", count.index+1)}"
   shape               = local.derived_storage_server_shape
@@ -291,7 +291,7 @@ resource "oci_core_instance" "quorum_server" {
   count               = var.fs_ha ? 1 : 0
   availability_domain = local.ad
 
-  #fault_domain        = "FAULT-DOMAIN-3"
+  fault_domain        = "FAULT-DOMAIN-3"
   compartment_id      = var.compartment_ocid
   display_name        = var.quorum_server_hostname
   shape               = var.quorum_server_shape

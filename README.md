@@ -1,9 +1,24 @@
 # oci-nfs
-oci-nfs template is a solution to deploy NFS server in an active/passive High Availability (HA) cluster or a single node NFS server.  OCI's Shared (Multi-attach) Block Volume Storage are a perfect fit to be the storage backend for a highly available NFS cluster.  For HA, the solution utilizes open source corosync/pacemaker.   The solution also allows you to deploy a singe node NFS server,  using either local NVMe SSDs or network attached Block volumes.  Optionally,  with the template, you can deploy NFS client nodes too.   
+oci-nfs template is a solution to deploy NFS server in an active/passive High Availability (HA) cluster or a single node NFS server. For NFS with HA, the solution provisions two NFS servers and one Quorum node. For HA, the solution utilizes open source corosync/pacemaker cluster services along with corosync qdevice for quorum on Quorum node. OCI's Shared (Multi-attach) Block Volume Storage saves 50% in storage cost versus traditional DRBD (Distributed Replicated Block Device) replication across 2 servers for high availability. The solution also allows you to deploy a singe node NFS server,  using either local NVMe SSDs or network attached Block volumes.  Optionally,  with the template, you can deploy NFS client nodes too.   
 
 OCI NFS solution supports both NFSv3 and NFSv4.   
 
 Bare metal Standard (BM.Standard2.x ) compute nodes come with 2 physical NICs (2x25Gbps). To get best performance,  network bandwidth of both NICs can be used by creating 2 private subnets.  One subnet (private-storage) is used for data transfer between NFS server and OCI Block Volumes (disks) and second subnet (private-fs) is used for data transfer between NFS clients and NFS server.   
+
+HA Stonith Fencing:  We use SBD (Split Brain Detection) fencing agent to protect the cluster against split brain and data corruption. SBD fencing requires a shared disk (different from NFS data disks)  attached to both NFS server nodes.  The template provisions the fencing shared disk and configures it. 
+
+Quorum Node:  Using just 2 nodes in production is not recommended, since it has limitations. A minimum of 3 nodes are required to maintain quorum, especially when one of the node fails or gets network isolated from other nodes.  We can use a VM with 1 or 2 OCPU.
+ 
+
+| Resource Type | Mandatory |  Resource Count  | Resource Details  | 
+| :---: | :---: | :---: | :---: | 
+| NFS Servers: Compute | Yes |  2  | Bare Metal Compute shapes are recommended for best performance, since they come with 2 physical NICs.  BM.Standard2.52 &  BM.Standard.E2.52 have 2x25Gbps.  BM.Standard.E3.128 comes with 2x50Gbps. VMs are also supported.  |    
+| Resource Type | Mandatory |  Resource Count  | Resource Details  | 
+| Quorum Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard2.1/2.2/.E2.1/.E2.2  | 
+| Stonith SBD Fencing Disk: /dev/oracleoci/oraclevdb | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  | 
+| Data Volumes:  OCI Block Volumes | Yes |  min:1 , max: 31 | Shared Disk - Multi-attach Block Volume attached to both NFS Server nodes.  Create a Volume Group of all Data Volumes and an LVM using the Volume Group with Striping.  Maximum LVM capacity: 31x32TB = 992TB.  Each Data Volume Capacity: min: 50GB, Max: 32TB. | 
+
+
 
 
 ## Architecture

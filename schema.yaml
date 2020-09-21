@@ -303,7 +303,7 @@ variables:
     title: "Filesystem Mount Point"
     type: string
     required: true
-    default: "/mnt/fs"
+    default: "/mnt/nfs"
     description: "Mount point on client instances for selected filesystem. "
     visible: ${create_compute_nodes}
 

@@ -11,5 +11,10 @@ then
     tstamp="$CRM_alert_timestamp: "
     echo "${tstamp}Moving IP" >> "${CRM_alert_recipient}"
     /home/oracle-cli/move_secip.sh >> "${CRM_alert_recipient}" 2>> "${CRM_alert_recipient}"
+    if [ $? -eq 0 ]; then
+      exit 0
+    else
+      exit 1
+    fi
 fi
 
