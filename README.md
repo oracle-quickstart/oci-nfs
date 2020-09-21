@@ -17,6 +17,7 @@ Quorum Node:  Using just 2 nodes in production is not recommended, since it has 
 | Stonith SBD Fencing Disk: OCI Block Volumes (/dev/oracleoci/oraclevdb) | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  | 
 | Data Volumes:  OCI Block Volumes | Yes |  min:1 , max: 31 | Shared Disk - Multi-attach Block Volume attached to both NFS Server nodes.  Create a Volume Group of all Data Volumes and an LVM using the Volume Group with Striping.  Maximum LVM capacity: 31x32TB = 992TB.  Each Data Volume Capacity: min: 50GB, Max: 32TB. | 
 | Client Node: Compute | No |  min:0  | Recommend provisioning 1 client node to test mounting of the filesystem.  For production, select compute shape based on performance requirements.  | 
+| Bastion Node: Compute | Yes |  1  | VM.Standard2.2 is the default shape for Bastion.  | 
 
 
 
