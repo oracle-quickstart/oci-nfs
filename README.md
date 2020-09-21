@@ -10,8 +10,8 @@ HA Stonith Fencing:  We use SBD (Split Brain Detection) fencing agent to protect
 Quorum Node:  Using just 2 nodes in production is not recommended, since it has limitations. A minimum of 3 nodes are required to maintain quorum, especially when one of the node fails or gets network isolated from other nodes.  We can use a VM with 1 or 2 OCPU.
  
 
-| Resource Type | Mandatory |  Resource Count  | Resource Details  | 
-| :---: | :---: | :---: | :--- | 
+| Resource Type | Mandatory |         Resource Count         | Resource Details  |  Comments |
+| :---: | :---: | :---: | :--- | :--- | 
 | NFS Servers: Compute | Yes |  NFS HA cluster - min/max: 2.  Single node NFS - min/max: 1   | Bare Metal Compute shapes are recommended for best performance, since they come with 2 physical NICs.  BM.Standard2.52 &  BM.Standard.E2.52 have 2x25Gbps.  BM.Standard.E3.128 comes with 2x50Gbps. VMs are also supported.  |  |
 | Quorum Node: Compute | Yes |  max: 1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard2.1/2.2/.E2.1/.E2.2  | Required only for HA solution, not for single node NFS server. | 
 | Stonith SBD Fencing Disk: OCI Block Volumes (/dev/oracleoci/oraclevdb) | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  | Required only for HA solution, not for single node NFS. |
