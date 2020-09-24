@@ -45,7 +45,28 @@ Bare metal nodes comes with 2 physical NICs (2x25Gbps). To get best performance,
 
 
 ## Prerequisites
+### 1. Setup on local machine to run Terraform for OCI
 First off you'll need to do some pre deploy setup.  That's all detailed [here](https://github.com/oracle/oci-quickstart-prerequisites).
+
+### 2. OCI Dynamic Group and Policies for active/passive high availability NFS cluster
+The below two requirements are if you plan to deploy an active/passive high availability NFS cluster.  You must authorize instances to call services in Oracle Cloud Infrastructure.
+
+
+     1. Create a dynamic group of compute instances in your compartment (OCI console > Identity > Dynamic Groups).  For more documentation, refer to https://docs.cloud.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm.  Once instances are provisioned,  the dynamic group can be further restricted to only include the instance_id of the 2 NFS servers. 
+
+ ```
+               ANY {instance.compartment.id =  'compartment.ocid'}
+ ```
+
+     2. Create policies to authorize dynamic group to use VNICs and private-ips APIs.
+
+```
+             Allow dynamic-group nfs_high_availability to use private-ips in compartment <your compartment>
+
+             Allow dynamic-group nfs_high_availability to use vnics in compartment <your compartment>
+```
+
+
 
 ## Clone the Terraform template
 Now, you'll want a local copy of this repo.  You can make that with the commands:
