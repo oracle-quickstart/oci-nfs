@@ -198,17 +198,17 @@ variable "volume_type_vpus_per_gb_mapping" {
   }
 }
 
-
 #-------------------------------------------------------------------------------------------------------------
 # Marketplace variables
-# hpc-filesystem-BeeGFS-OL77_3.10.0-1062.9.1.el7.x86_64
+# hpc-filesystem-BeeGFS-OL77_4.14.35-1902.10.4.el7uek.x86_64
+# Oracle Linux 7.7 UEK Image for BeeGFS filesystem on Oracle Cloud Infrastructure
 # ------------------------------------------------------------------------------------------------------------
 
 variable "mp_listing_id" {
-  default = "ocid1.appcataloglisting.oc1..aaaaaaaajmdokvtzailtlchqxk7nai45fxar6em7dfbdibxmspjsvs4uz3uq"
+  default = "ocid1.appcataloglisting.oc1..aaaaaaaadu427jmx3pbdw76ek6xkgin4ucmfbrlsavb45snvzk5d7ckrs3nq"
 }
 variable "mp_listing_resource_id" {
-  default = "ocid1.image.oc1..aaaaaaaacnodhlnuidkvnlvu3dpu4n26knkqudjxzfpq3vexi7cobbclmbxa"
+  default = "ocid1.image.oc1..aaaaaaaa6pvs3ovuveqb7pepzjhemyykkyjae7tttrb2fkf5adzwqm3izvxq"
 }
 variable "mp_listing_resource_version" {
  default = "1.0"
@@ -219,6 +219,29 @@ variable "use_marketplace_image" {
 }
 
 # ------------------------------------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------------------------------------
+# Marketplace variables
+# hpc-filesystem-BeeGFS-OL77_3.10.0-1062.9.1.el7.x86_64
+# ------------------------------------------------------------------------------------------------------------
+
+# variable "mp_listing_id" {
+#   default = "ocid1.appcataloglisting.oc1..aaaaaaaajmdokvtzailtlchqxk7nai45fxar6em7dfbdibxmspjsvs4uz3uq"
+# }
+# variable "mp_listing_resource_id" {
+#   default = "ocid1.image.oc1..aaaaaaaacnodhlnuidkvnlvu3dpu4n26knkqudjxzfpq3vexi7cobbclmbxa"
+# }
+# variable "mp_listing_resource_version" {
+#  default = "1.0"
+# }
+
+# variable "use_marketplace_image" {
+#   default = true
+# }
+
+# ------------------------------------------------------------------------------------------------------------
+
 
 
 variable "use_existing_vcn" {
