@@ -1,4 +1,4 @@
-# oci-nfs
+# oce-nfs
 oci-nfs template is a solution to deploy NFS server in an active/passive High Availability (HA) cluster or a single node NFS server. For NFS with HA, the solution provisions two NFS servers and one Quorum node. For HA, the solution utilizes open source corosync/pacemaker cluster services along with corosync qdevice for quorum on Quorum node. OCI's Shared (Multi-attach) Block Volume Storage saves 50% in storage cost versus traditional DRBD (Distributed Replicated Block Device) replication across 2 servers for high availability. The solution also allows you to deploy a singe node NFS server,  using either local NVMe SSDs or network attached Block volumes.  Optionally,  with the template, you can deploy NFS client nodes too.   
 
 OCI NFS solution supports both NFSv3 and NFSv4.   
@@ -71,7 +71,7 @@ The below two requirements are if you plan to deploy an active/passive high avai
 
 
 ## Marketplace Deployment 
-If you prefer to use a GUI console to deploy, you can use the Markeplace listing to deploy:   ![NFS Server in an active/passive high availability cluster](https://cloudmarketplace.oracle.com/marketplace/en_US/listing/82147253)
+If you prefer to use a GUI console to deploy, you can use the Markeplace listing to deploy: [NFS Server in an active/passive high availability cluster](https://cloudmarketplace.oracle.com/marketplace/en_US/listing/82147253)
 
 ## Terraform Deployment
 If you prefer Terraform, then follow the below steps.  
