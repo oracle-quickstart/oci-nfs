@@ -58,17 +58,24 @@ The below two requirements are if you plan to deploy an active/passive high avai
                ANY {instance.compartment.id =  'compartment.ocid'}
  ```
 
-     2. Create policies to authorize dynamic group to use VNICs and private-ips APIs.
+     2. Create policies to authorize dynamic group to use vnics, subnets and private-ips APIs.
 
 ```
              Allow dynamic-group nfs_high_availability to use private-ips in compartment <your compartment>
 
              Allow dynamic-group nfs_high_availability to use vnics in compartment <your compartment>
+
+	     Allow dynamic-group nfs_high_availability to use subnets in compartment <your compartment>
+
 ```
 
 
+## Marketplace Deployment 
+If you prefer to use a GUI console to deploy, you can use the Markeplace listing to deploy:   ![NFS Server in an active/passive high availability cluster](https://cloudmarketplace.oracle.com/marketplace/en_US/listing/82147253)
 
-## Clone the Terraform template
+## Terraform Deployment
+If you prefer Terraform, then follow the below steps.  
+
 Now, you'll want a local copy of this repo.  You can make that with the commands:
 
 ```
