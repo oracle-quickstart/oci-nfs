@@ -28,7 +28,7 @@ locals {
 }
 
 data "template_file" "bastion_config" {
-  template = file("config.bastion")
+  template = file("${path.module}/config.bastion")
   vars = {
     key = tls_private_key.ssh.private_key_pem
   }
@@ -57,7 +57,7 @@ resource "oci_core_instance" "bastion" {
   }
 
   provisioner "file" {
-    source        = "playbooks"
+    source        = "${path.module}/playbooks"
     destination   = "/home/opc/"
     connection {
       host        = oci_core_instance.bastion[0].public_ip
@@ -143,7 +143,7 @@ resource "oci_core_instance" "bastion" {
 
 
   provisioner "file" {
-    source      = "configure.sh"
+    source      = "${path.module}/configure.sh"
     destination = "/tmp/configure.sh"
     connection {
       host        = oci_core_instance.bastion[0].public_ip
@@ -162,7 +162,7 @@ resource "null_resource" "run_configure_sh" {
 
 
   provisioner "file" {
-    source      = "configure.sh"
+    source      = "${path.module}/configure.sh"
     destination = "/tmp/configure.sh"
     connection {
       host        = oci_core_instance.bastion[0].public_ip
