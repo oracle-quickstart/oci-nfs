@@ -23,8 +23,8 @@ variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
 variable storage_server_hostname_prefix { default = "storage-server-" }
 
 # Quorum node - mandatory for HA.  Not required for single server NFS
-variable quorum_server_shape { default="VM.Standard2.2" }
-variable quorum_server_hostname { default="qdevice" }
+variable quorum_server_shape { default = "VM.Standard2.2" }
+variable quorum_server_hostname { default = "qdevice" }
 
 
 #Stonith/Fencing - Implemented using SBD fencing agent, shared disk/multi-attach (/dev/oracleoci/oraclevdb) and s/w watchdog (softdog)
