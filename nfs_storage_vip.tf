@@ -5,7 +5,7 @@ data "oci_core_vnic_attachments" "storage_server_vnic_attachments" {
     compartment_id = var.compartment_ocid
 
     #Optional
-    instance_id = "${element(concat(oci_core_instance.storage_server.*.id, [""]), 0)}"
+    instance_id = element(concat(oci_core_instance.storage_server.*.id, [""]), 0)
 }
 
 

@@ -1,6 +1,6 @@
 
 provider "oci" {
-  version          = ">= 3.0.0"
+  version          = ">= 3.94.0"
   tenancy_ocid     = var.tenancy_ocid
   user_ocid        = var.user_ocid
   fingerprint      = var.fingerprint
@@ -19,7 +19,4 @@ variable "private_key_path" {
 }
 
 variable "ssh_private_key" {
-}
-
-variable "ssh_private_key_path" {
 }

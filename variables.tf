@@ -13,17 +13,23 @@ variable "fs_ha" { default = "true" }
 
 
 variable bastion_shape { default = "VM.Standard2.1" }
+# Number of OCPU's for flex shape
+variable bastion_ocpus { default = "1" }
 variable bastion_node_count { default = 1 }
 variable bastion_hostname_prefix { default = "bastion-" }
 
 
 # NFS Storage Server variables
 variable persistent_storage_server_shape { default = "VM.Standard2.2" }
+# Number of OCPU's for flex shape
+variable storage_server_ocpus { default = "1" }
 variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
 variable storage_server_hostname_prefix { default = "storage-server-" }
 
 # Quorum node - mandatory for HA.  Not required for single server NFS
 variable quorum_server_shape { default = "VM.Standard2.2" }
+# Number of OCPU's for flex shape
+variable quorum_server_ocpus { default = "1" }
 variable quorum_server_hostname { default = "qdevice" }
 
 
@@ -34,7 +40,9 @@ variable quorum_server_hostname { default = "qdevice" }
 # Client/Compute nodes variables - nodes which will mount the filesystem - optional.  Set to false, if client nodes are not needed.
 variable "create_compute_nodes" { default = "true" }
 variable client_node_shape { default = "VM.Standard2.24" }
-variable client_node_count { default = 1 }
+# Number of OCPU's for flex shape
+variable client_node_ocpus { default = "1" }
+variable client_node_count { default = 0 }
 variable client_node_hostname_prefix { default = "client-" }
 
 
@@ -68,6 +76,17 @@ variable "storage_tier_1_disk_size" {
   description = "Select size in GB for each block volume/disk, min 50.  Total NFS filesystem raw capacity will be NUMBER OF BLOCK VOLUMES * BLOCK VOLUME SIZE."
 }
 
+variable "instance_os" {
+    description = "Operating system for compute instances"
+    default = "Oracle Linux"
+}
+
+# Only latest supported OS version works. if I use 7.7, it doesn't return an image ocid.
+variable "linux_os_version" {
+    description = "Operating system version for compute instances except NAT"
+    default = "7.8"
+}
+
 
 ################################################################
 ## Variables which in most cases do not require change by user
@@ -95,10 +114,15 @@ locals {
   storage_server_filesystem_vnic_hostname_prefix = "${var.storage_server_hostname_prefix}fs-vnic-"
   filesystem_subnet_domain_name="${data.oci_core_subnet.private_fs_subnet.dns_label}.${data.oci_core_vcn.nfs.dns_label}.oraclevcn.com"
 
+  is_bastion_flex_shape = var.bastion_shape == "VM.Standard.E3.Flex" ? [var.bastion_ocpus]:[]
+  is_quorum_server_flex_shape = var.quorum_server_shape == "VM.Standard.E3.Flex" ? [var.quorum_server_ocpus]:[]
+  is_storage_server_flex_shape = var.persistent_storage_server_shape == "VM.Standard.E3.Flex" ? [var.storage_server_ocpus]:[]
+  is_client_node_flex_shape = var.client_node_shape == "VM.Standard.E3.Flex" ? [var.client_node_ocpus]:[]
+
   # If ad_number is non-negative use it for AD lookup, else use ad_name.
   # Allows for use of ad_number in TF deploys, and ad_name in ORM.
   # Use of max() prevents out of index lookup call.
-  ad = "${var.ad_number >= 0 ? lookup(data.oci_identity_availability_domains.availability_domains.availability_domains[max(0,var.ad_number)],"name") : var.ad_name}"
+  ad = var.ad_number >= 0 ? lookup(data.oci_identity_availability_domains.availability_domains.availability_domains[max(0,var.ad_number)],"name") : var.ad_name
 
 }
 
@@ -198,12 +222,24 @@ variable "volume_type_vpus_per_gb_mapping" {
   }
 }
 
+
+# Not compatible with E3.Flex shapes.  Need image released after April 2020.
+#-------------------------------------------------------------------------------------------------------------
+# Marketplace variables
+# OL78UEK-4.14.35-1902.305.4.el7uek.x86_64
+# Oracle Linux 7.8 UEK Image for filesystem
+# ------------------------------------------------------------------------------------------------------------
+variable "mp_listing_id" { default = "ocid1.appcataloglisting.oc1..aaaaaaaa26y5fkfvbjmspmuuhpoi6jptq3gc635a3gz72qujfsomvczh2miq" }
+variable "mp_listing_resource_id" { default = "ocid1.image.oc1..aaaaaaaabxwrflhsoaipmm4v7xvjfsmou42bp2fwpmuvyyug2sksfmroihta" }
+variable "mp_listing_resource_version" { default = "1.0" }
+variable "use_marketplace_image" { default = true }
+
 #-------------------------------------------------------------------------------------------------------------
 # Marketplace variables
 # hpc-filesystem-BeeGFS-OL77_4.14.35-1902.10.4.el7uek.x86_64
 # Oracle Linux 7.7 UEK Image for BeeGFS filesystem on Oracle Cloud Infrastructure
 # ------------------------------------------------------------------------------------------------------------
-
+/*
 variable "mp_listing_id" {
   default = "ocid1.appcataloglisting.oc1..aaaaaaaadu427jmx3pbdw76ek6xkgin4ucmfbrlsavb45snvzk5d7ckrs3nq"
 }
@@ -217,7 +253,7 @@ variable "mp_listing_resource_version" {
 variable "use_marketplace_image" {
   default = true
 }
-
+*/
 # ------------------------------------------------------------------------------------------------------------
 
 

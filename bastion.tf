@@ -6,25 +6,18 @@ resource "tls_private_key" "ssh" {
 
 locals {
   bastion_subnet_id = var.use_existing_vcn ? var.bastion_subnet_id : element(concat(oci_core_subnet.public.*.id, [""]), 0)
-  image_id          = (var.use_marketplace_image ? var.mp_listing_resource_id : var.images[var.region])
-  ##client_subnet_id  = var.use_existing_vcn ? var.client_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
-}
-
-locals {
+  image_id          = (var.use_marketplace_image ? var.mp_listing_resource_id : data.oci_core_images.InstanceImageOCID.images.0.id)
+  # var.images[var.region]
   storage_subnet_id = var.use_existing_vcn ? var.storage_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
   fs_subnet_id        = var.use_existing_vcn ? var.fs_subnet_id : local.storage_server_dual_nics ? element(concat(oci_core_subnet.fs.*.id, [""]), 0) :  element(concat(oci_core_subnet.storage.*.id, [""]), 0)
   client_subnet_id    = local.fs_subnet_id
   derived_storage_server_shape = (length(regexall("^Scratch", var.fs_type)) > 0 ? var.scratch_storage_server_shape : var.persistent_storage_server_shape)
   derived_storage_server_node_count=(var.fs_ha ? 2 : 1)
   derived_storage_server_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : var.storage_tier_1_disk_count)
-}
-
-locals {
   derived_storage_primary_vnic_vip_private_ip=((var.use_existing_vcn || length(var.rm_only_ha_vip_private_ip) > 0) ? var.rm_only_ha_vip_private_ip : var.storage_primary_vnic_vip_private_ip)
   derived_storage_secondary_vnic_vip_private_ip=((var.use_existing_vcn || length(var.rm_only_ha_vip_private_ip) > 0) ? var.rm_only_ha_vip_private_ip : var.storage_secondary_vnic_vip_private_ip)
   nfs=(length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
   nfs_server_ip=(var.fs_ha ? (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? local.derived_storage_primary_vnic_vip_private_ip : local.derived_storage_secondary_vnic_vip_private_ip) : local.derived_storage_primary_vnic_vip_private_ip ) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )
-
 }
 
 data "template_file" "bastion_config" {
@@ -47,6 +40,14 @@ resource "oci_core_instance" "bastion" {
     ssh_authorized_keys = "${var.ssh_public_key}\n${tls_private_key.ssh.public_key_openssh}"
     user_data           = base64encode(data.template_file.bastion_config.rendered)
   }
+
+  dynamic "shape_config" {
+    for_each = local.is_bastion_flex_shape
+      content {
+        ocpus = shape_config.value
+      }
+  }
+
   source_details {
     source_id   = local.image_id
     source_type = "image"
@@ -56,15 +57,16 @@ resource "oci_core_instance" "bastion" {
     hostname_label      = "${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
   }
 
-  provisioner "file" {
-    source        = "${path.module}/playbooks"
-    destination   = "/home/opc/"
     connection {
       host        = oci_core_instance.bastion[0].public_ip
       type        = "ssh"
       user        = "opc"
       private_key = tls_private_key.ssh.private_key_pem
     }
+
+  provisioner "file" {
+    source        = "${path.module}/playbooks"
+    destination   = "/home/opc/"
   }
 
   provisioner "file" {
@@ -99,58 +101,29 @@ resource "oci_core_instance" "bastion" {
     })
 
     destination   = "/home/opc/playbooks/inventory"
-    connection {
-      host        = oci_core_instance.bastion[0].public_ip
-      type        = "ssh"
-      user        = "opc"
-      private_key = tls_private_key.ssh.private_key_pem
-    }
   }
 
 
   provisioner "file" {
     content     = tls_private_key.ssh.private_key_pem
     destination = "/home/opc/.ssh/cluster.key"
-    connection {
-      host        = oci_core_instance.bastion[0].public_ip
-      type        = "ssh"
-      user        = "opc"
-      private_key = tls_private_key.ssh.private_key_pem
-    }
   }
+
 
   provisioner "file" {
     content     = tls_private_key.ssh.private_key_pem
     destination = "/home/opc/.ssh/id_rsa"
-    connection {
-      host        = oci_core_instance.bastion[0].public_ip
-      type        = "ssh"
-      user        = "opc"
-      private_key = tls_private_key.ssh.private_key_pem
-    }
   }
 
   provisioner "file" {
     content     = join("\n", data.oci_core_instance.storage_server.*.private_ip)
     destination = "/tmp/hosts"
-    connection {
-      host        = oci_core_instance.bastion[0].public_ip
-      type        = "ssh"
-      user        = "opc"
-      private_key = tls_private_key.ssh.private_key_pem
-    }
   }
 
 
   provisioner "file" {
     source      = "${path.module}/configure.sh"
     destination = "/tmp/configure.sh"
-    connection {
-      host        = oci_core_instance.bastion[0].public_ip
-      type        = "ssh"
-      user        = "opc"
-      private_key = tls_private_key.ssh.private_key_pem
-    }
   }
 
 
@@ -160,16 +133,17 @@ resource "null_resource" "run_configure_sh" {
   depends_on = [ oci_core_instance.bastion, null_resource.notify_storage_server_nodes_block_attach_complete ]
   count      = var.bastion_node_count
 
-
-  provisioner "file" {
-    source      = "${path.module}/configure.sh"
-    destination = "/tmp/configure.sh"
     connection {
       host        = oci_core_instance.bastion[0].public_ip
       type        = "ssh"
       user        = "opc"
       private_key = tls_private_key.ssh.private_key_pem
     }
+
+
+  provisioner "file" {
+    source      = "${path.module}/configure.sh"
+    destination = "/tmp/configure.sh"
   }
 
   provisioner "remote-exec" {
@@ -180,12 +154,6 @@ resource "null_resource" "run_configure_sh" {
       "chmod a+x /tmp/*.sh",
       "/tmp/configure.sh"
     ]
-    connection {
-      host        = oci_core_instance.bastion[0].public_ip
-      type        = "ssh"
-      user        = "opc"
-      private_key = tls_private_key.ssh.private_key_pem
-    }
   }
 }
 
@@ -227,19 +195,24 @@ resource "oci_core_instance" "storage_server" {
         tls_private_key.ssh.public_key_openssh
       ]
     )
-    user_data = "${base64encode(join("\n", list(
-        "#!/usr/bin/env bash",
-        "set -x",
-      )))}"
-    }
+    user_data = base64encode(join("\n", list(
+      "#!/usr/bin/env bash",
+      "set -x",
+    )))
+  }
+
+  dynamic "shape_config" {
+    for_each = local.is_storage_server_flex_shape
+      content {
+        ocpus = shape_config.value
+      }
+  }
 
   timeouts {
     create = "120m"
   }
 
 }
-
-
 
 
 
@@ -274,11 +247,18 @@ resource "oci_core_instance" "client_node" {
         tls_private_key.ssh.public_key_openssh
       ]
     )
-    user_data = "${base64encode(join("\n", list(
+    user_data = base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
-      )))}"
+      )))
     }
+
+  dynamic "shape_config" {
+    for_each = local.is_client_node_flex_shape
+      content {
+        ocpus = shape_config.value
+      }
+  }
 
   timeouts {
     create = "120m"
@@ -321,11 +301,18 @@ resource "oci_core_instance" "quorum_server" {
         tls_private_key.ssh.public_key_openssh
       ]
     )
-    user_data = "${base64encode(join("\n", list(
+    user_data = base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
-      )))}"
+      )))
     }
+
+  dynamic "shape_config" {
+    for_each = local.is_quorum_server_flex_shape
+      content {
+        ocpus = shape_config.value
+      }
+  }
 
   timeouts {
     create = "120m"

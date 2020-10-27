@@ -1,6 +1,6 @@
 # Gets a list of Availability Domains
 data "oci_identity_availability_domains" "availability_domains" {
-compartment_id = "${var.compartment_ocid}"
+compartment_id = var.compartment_ocid
 }
 
 data "oci_core_instance" "storage_server" {
@@ -40,7 +40,18 @@ data "oci_core_vcn" "nfs" {
 data "oci_core_private_ips" "private_ips_by_vnic" {
   count   = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? 0 : local.derived_storage_server_node_count ) : 0 )
   #Optional
-  vnic_id = "${element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)}"
+  vnic_id = element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)
 }
 
+data "oci_core_images" "InstanceImageOCID" {
+    compartment_id            = var.compartment_ocid
+    operating_system          = var.instance_os
+    operating_system_version  = var.linux_os_version
 
+    filter {
+      name   = "display_name"
+      values = ["^.*Oracle[^G]*$"]
+      regex  = true
+  }
+
+}

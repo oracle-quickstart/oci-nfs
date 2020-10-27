@@ -23,6 +23,8 @@ groupings:
     - fs_name
     - storage_secondary_vnic_vip_private_ip
     - storage_primary_vnic_vip_private_ip
+    - instance_os
+    - linux_os_version
   - title: "NFS Filesystem Configuration"
     visible: true
     variables:
@@ -47,6 +49,7 @@ groupings:
     visible: true
     variables:
     - bastion_shape
+    - bastion_ocpus
     - bastion_node_count
     - bastion_hostname_prefix
   - title: "NFS Server Instance Configuration"
@@ -54,6 +57,7 @@ groupings:
     variables:
     - scratch_storage_server_shape
     - persistent_storage_server_shape
+    - storage_server_ocpus
     - storage_server_node_count
     - storage_server_hostname_prefix
   - title: "NFS Storage Configuration"
@@ -69,6 +73,7 @@ groupings:
   - title: "Quorum Server Instance Configuration"
     variables:
     - quorum_server_shape
+    - quorum_server_ocpus
     - quorum_server_hostname
     visible:
       and:
@@ -81,6 +86,7 @@ groupings:
     variables:
     - create_compute_nodes
     - client_node_shape
+    - client_node_ocpus
     - client_node_count
     - client_node_hostname_prefix
     - mount_point
@@ -105,13 +111,47 @@ variables:
   bastion_shape:
     title: "Bastion Compute Shape"
     description: "Shape for bastion instances."
-    type: oci:core:instanceshape:name
     default: "VM.Standard2.2"
     required: true
-    dependsOn:
-      compartmentId: ${compartment_ocid}
-      imageId: ${mp_listing_resource_id}
+    type: enum
+    enum:
+    - "VM.DenseIO2.8"
+    - "VM.DenseIO2.16"
+    - "VM.DenseIO2.24"
+    - "VM.Standard2.1"
+    - "VM.Standard2.2"
+    - "VM.Standard2.4"
+    - "VM.Standard2.8"
+    - "VM.Standard2.16"
+    - "VM.Standard2.24"
+    - "VM.Standard.E2.1"
+    - "VM.Standard.E2.2"
+    - "VM.Standard.E2.4"
+    - "VM.Standard.E2.8"
+    - "VM.Standard.E3.Flex"
+    - "VM.GPU3.1"
+    - "VM.GPU3.2"
+    - "VM.GPU3.4"
+    - "BM.Standard2.52"
+    - "BM.Standard.E2.64"
+    - "BM.Standard.E3.128"
+    - "BM.DenseIO2.52"
+    - "BM.HPC2.36"
+    - "BM.GPU3.8"
     visible: true
+
+  bastion_ocpus:
+    title: Cores
+    type: integer
+    description: Number of OCPU's for flex shape
+    minimum: 1
+    maximum: 64
+    default: 2
+    visible:
+      eq:
+        - ${bastion_shape}
+        - "VM.Standard.E3.Flex"
+    required: true
 
   bastion_node_count:
     title: "Number of bastion"
@@ -166,12 +206,26 @@ variables:
     - "VM.Standard.E2.4"
     - "VM.Standard.E2.8"
     - "BM.Standard.E2.64"
-    - "BM.Standard.E2.128"
+    - "VM.Standard.E3.Flex"
+    - "BM.Standard.E3.128"
     visible:
       and:
         - eq:
           - ${fs_type}
           - "Persistent"
+
+  storage_server_ocpus:
+    title: Cores
+    type: integer
+    description: Number of OCPU's for flex shape
+    minimum: 1
+    maximum: 64
+    default: 2
+    visible:
+      eq:
+        - ${persistent_storage_server_shape}
+        - "VM.Standard.E3.Flex"
+    required: true
 
   storage_server_node_count:
     title: "Number of storage servers"
@@ -240,13 +294,47 @@ variables:
   client_node_shape:
     title: "Client Compute Shape"
     description: "Shape for client instances."
-    type: oci:core:instanceshape:name
     default: "VM.Standard2.24"
     required: true
     visible: ${create_compute_nodes}
-    dependsOn:
-      compartmentId: ${compartment_ocid}
-      imageId: ${mp_listing_resource_id}
+    type: enum
+    enum:
+    - "VM.DenseIO2.8"
+    - "VM.DenseIO2.16"
+    - "VM.DenseIO2.24"
+    - "VM.Standard2.1"
+    - "VM.Standard2.2"
+    - "VM.Standard2.4"
+    - "VM.Standard2.8"
+    - "VM.Standard2.16"
+    - "VM.Standard2.24"
+    - "VM.Standard.E2.1"
+    - "VM.Standard.E2.2"
+    - "VM.Standard.E2.4"
+    - "VM.Standard.E2.8"
+    - "VM.Standard.E3.Flex"
+    - "VM.GPU3.1"
+    - "VM.GPU3.2"
+    - "VM.GPU3.4"
+    - "BM.Standard2.52"
+    - "BM.Standard.E2.64"
+    - "BM.Standard.E3.128"
+    - "BM.DenseIO2.52"
+    - "BM.HPC2.36"
+    - "BM.GPU3.8"
+
+  client_node_ocpus:
+    title: Cores
+    type: integer
+    description: Number of OCPU's for flex shape
+    minimum: 1
+    maximum: 64
+    default: 2
+    visible:
+      eq:
+        - ${client_node_shape}
+        - "VM.Standard.E3.Flex"
+    required: true
 
   client_node_count:
     title: "Number of clients"
@@ -412,12 +500,46 @@ variables:
   quorum_server_shape:
     title: "Quorum Server Compute Shape"
     description: "Shape for Quorum node. A minimum of 3 nodes (2 NFS Server node + 1 Quorum node) are required to ensure that a cluster always has a quorum of nodes to maintain a healthy active cluster."
-    type: oci:core:instanceshape:name
     default: "VM.Standard2.2"
     required: true
-    dependsOn:
-      compartmentId: ${compartment_ocid}
-      imageId: ${mp_listing_resource_id}
+    type: enum
+    enum:
+    - "VM.DenseIO2.8"
+    - "VM.DenseIO2.16"
+    - "VM.DenseIO2.24"
+    - "VM.Standard2.1"
+    - "VM.Standard2.2"
+    - "VM.Standard2.4"
+    - "VM.Standard2.8"
+    - "VM.Standard2.16"
+    - "VM.Standard2.24"
+    - "VM.Standard.E2.1"
+    - "VM.Standard.E2.2"
+    - "VM.Standard.E2.4"
+    - "VM.Standard.E2.8"
+    - "VM.Standard.E3.Flex"
+    - "VM.GPU3.1"
+    - "VM.GPU3.2"
+    - "VM.GPU3.4"
+    - "BM.Standard2.52"
+    - "BM.Standard.E2.64"
+    - "BM.Standard.E3.128"
+    - "BM.DenseIO2.52"
+    - "BM.HPC2.36"
+    - "BM.GPU3.8"
+
+  quorum_server_ocpus:
+    title: Cores
+    type: integer
+    description: Number of OCPU's for flex shape
+    minimum: 1
+    maximum: 64
+    default: 2
+    visible:
+      eq:
+        - ${quorum_server_shape}
+        - "VM.Standard.E3.Flex"
+    required: true
 
   quorum_server_hostname:
     title: "Quorum Server Hostname"
@@ -426,3 +548,12 @@ variables:
     default: "qdevice"
     description: "Quorum node hostname"
     visible: true
+
+  instance_os:
+    title: "Operating system for compute instances"
+    type: string
+
+  linux_os_version:
+    title: "Operating system version for compute instances"
+    type: string
+

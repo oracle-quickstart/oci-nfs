@@ -61,7 +61,7 @@ END
 
 
 output "hacluster_user_password" {
-  value = ["${random_string.hacluster_user_password.result}"]
+  value = [random_string.hacluster_user_password.result]
 }
 
 
