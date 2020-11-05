@@ -7,7 +7,7 @@ All network resources for this template
 
 resource "oci_core_virtual_network" "nfs" {
   count          = var.use_existing_vcn ? 0 : 1
-  cidr_block     = var.vpc_cidr
+  cidr_block     = var.vcn_cidr
   compartment_id = var.compartment_ocid
   display_name   = "nfs"
   dns_label      = "nfs"
@@ -86,7 +86,7 @@ resource "oci_core_security_list" "private_security_list" {
 
   ingress_security_rules  {
     protocol = "all"
-    source   = var.vpc_cidr
+    source   = var.vcn_cidr
   }
 }
 
@@ -94,7 +94,7 @@ resource "oci_core_security_list" "private_security_list" {
 # Regional subnet - public
 resource "oci_core_subnet" "public" {
   count             = var.use_existing_vcn ? 0 : 1
-  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index)
+  cidr_block        = trimspace(local.derived_bastion_subnet_cidr)
   display_name      = "public"
   compartment_id    = var.compartment_ocid
   vcn_id            = oci_core_virtual_network.nfs[0].id
@@ -108,7 +108,7 @@ resource "oci_core_subnet" "public" {
 # Regional subnet - private
 resource "oci_core_subnet" "storage" {
   count                      = var.use_existing_vcn ? 0 : 1
-  cidr_block                 = cidrsubnet(var.vpc_cidr, 8, count.index+3)
+  cidr_block                 = trimspace(local.derived_storage_subnet_cidr)
   display_name               = "private_storage"
   compartment_id             = var.compartment_ocid
   vcn_id                     = oci_core_virtual_network.nfs[0].id
@@ -120,8 +120,8 @@ resource "oci_core_subnet" "storage" {
 }
 
 resource "oci_core_subnet" "fs" {
-  count                      = var.use_existing_vcn ? 0 : 1
-  cidr_block                 = cidrsubnet(var.vpc_cidr, 8, count.index + 6)
+  count                      = local.create_fs_subnet
+  cidr_block                 = trimspace(local.derived_fs_subnet_cidr)
   display_name               = "private_fs"
   compartment_id             = var.compartment_ocid
   vcn_id                     = oci_core_virtual_network.nfs[0].id

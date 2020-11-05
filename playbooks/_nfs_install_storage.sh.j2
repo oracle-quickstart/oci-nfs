@@ -83,14 +83,13 @@ find_block_volumes()
       # Exclude, /dev/oracleoci/oraclevdb from the list, since it will be used for Stonith fencing.
       # Gather list of block devices
       # blk_lst will be full path, eg  /dev/oracleoci/oraclevdd , etc
-      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | grep -v vdb | sort)
-      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | grep -v vdb | wc -l)
+      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | grep -v vdb | sort)
+      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | grep -v vdb | wc -l)
   else
       # Gather list of block devices
-      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | sort)
-      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda | grep -v nvme | wc -l)
+      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | sort)
+      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | wc -l)
   fi
-
 }
 
 

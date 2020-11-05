@@ -4,22 +4,6 @@ resource "tls_private_key" "ssh" {
 }
 
 
-locals {
-  bastion_subnet_id = var.use_existing_vcn ? var.bastion_subnet_id : element(concat(oci_core_subnet.public.*.id, [""]), 0)
-  image_id          = (var.use_marketplace_image ? var.mp_listing_resource_id : data.oci_core_images.InstanceImageOCID.images.0.id)
-  # var.images[var.region]
-  storage_subnet_id = var.use_existing_vcn ? var.storage_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
-  fs_subnet_id        = var.use_existing_vcn ? var.fs_subnet_id : local.storage_server_dual_nics ? element(concat(oci_core_subnet.fs.*.id, [""]), 0) :  element(concat(oci_core_subnet.storage.*.id, [""]), 0)
-  client_subnet_id    = local.fs_subnet_id
-  derived_storage_server_shape = (length(regexall("^Scratch", var.fs_type)) > 0 ? var.scratch_storage_server_shape : var.persistent_storage_server_shape)
-  derived_storage_server_node_count = (var.fs_ha ? 2 : 1)
-  derived_storage_server_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : var.storage_tier_1_disk_count)
-  derived_storage_primary_vnic_vip_private_ip = ((var.use_existing_vcn || length(var.rm_only_ha_vip_private_ip) > 0) ? var.rm_only_ha_vip_private_ip : var.storage_primary_vnic_vip_private_ip)
-  derived_storage_secondary_vnic_vip_private_ip = ((var.use_existing_vcn || length(var.rm_only_ha_vip_private_ip) > 0) ? var.rm_only_ha_vip_private_ip : var.storage_secondary_vnic_vip_private_ip)
-  nfs = (length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
-  nfs_server_ip = (var.fs_ha ? (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? local.derived_storage_primary_vnic_vip_private_ip : local.derived_storage_secondary_vnic_vip_private_ip) : local.derived_storage_primary_vnic_vip_private_ip ) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )
-}
-
 data "template_file" "bastion_config" {
   template = file("${path.module}/config.bastion")
   vars = {

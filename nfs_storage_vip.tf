@@ -10,20 +10,21 @@ data "oci_core_vnic_attachments" "storage_server_vnic_attachments" {
 
 
 # For NFS HA - VIP
-
 resource "oci_core_private_ip" "storage_vip_private_ip" {
     count = var.fs_ha ? 1 : 0
 
     #Required
     vnic_id = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0) : element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)) : element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0))
 
-    #Optional
-    display_name = "storage-vip"
-    hostname_label = "storage-vip"
+    display_name = "nfs-vip"
+    # If user doesn't provide a hostname, use random xxx-xxx string for uniqueness.
+    hostname_label = length(var.ha_vip_hostname) > 0 ? var.ha_vip_hostname : random_pet.name.id
     ip_address = local.nfs_server_ip
 }
 
-
+resource "random_pet" "name" {
+  length = 2
+}
 
 
 resource "oci_core_vnic_attachment" "storage_server_secondary_vnic_attachment" {
