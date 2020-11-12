@@ -1,13 +1,5 @@
 
-#  Do the following on OCI Console/CLI, etc before running this script. 
-#  Create Dynamic Group
-#  nfs_ha - DG for creating HA Active-Passive node pairs
-#  ANY {instance.compartment.id =  'ocid1.compartment.oc1..aaaaaaaawiovn4frspcslaqkf4glwndsvf4obwjdunsf5paj4qv6f4opls7a'}
-#  Create policies
-#  Allow dynamic-group nfs_ha to use private-ips in compartment pinkesh
-#  Allow dynamic-group nfs_ha to use vnics in compartment pinkesh
-
-
+#  We assume you already have completed the pre-requisites required for High Availability to work.  The pre-requisites are documented here: https://github.com/oracle-quickstart/oci-nfs#2-oci-dynamic-group-and-policies-for-activepassive-high-availability-nfs-cluster  and OCI marketplace listing usage intructions.
 
 SSH_OPTIONS=" -i /home/opc/.ssh/id_rsa -o BatchMode=yes -o StrictHostkeyChecking=no "
 MDATA_VNIC_URL="http://169.254.169.254/opc/v1/vnics/"
@@ -20,62 +12,63 @@ filesystem_name="nfsshare"
 filesystem_type="xfs"
 filesystem_device="/dev/{{ vg_name }}/{{ lv_name }}"
 filesystem_dir="/mnt/nfsshare"
+options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
+nfs_root_dir="${filesystem_dir}/exports"
+nfs_export1_dir="${nfs_root_dir}/export1"
+ha_config_dir="/home/opc/ha_config"
 
 group_name="nfsgroup"
 pcs_group_parameter=" --group ${group_name}"
 
-#exportfs_client_spec_1_cidr_block="10.0.3.0/24"
-#exportfs_client_spec_2_cidr_block="10.0.0.0/24"
+function configure_nfs_server {
+
+  #exportfs_client_spec_1_cidr_block="10.0.3.0/24"
+  #exportfs_client_spec_2_cidr_block="10.0.0.0/24"
+
+  exportfs_client_spec_1_cidr_block="{{ private_storage_subnet_cidr_block }}"
+  exportfs_client_spec_2_cidr_block="{{ public_subnet_cidr_block }}"
+  exportfs_client_spec_1_netmask=`ipcalc -m  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_1_network=`ipcalc -n  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_2_netmask=`ipcalc -m  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_2_network=`ipcalc -n  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
+  exportfs_client_spec_1="${exportfs_client_spec_1_network}/${exportfs_client_spec_1_netmask}"
+  exportfs_client_spec_2="${exportfs_client_spec_2_network}/${exportfs_client_spec_2_netmask}"
 
 
-exportfs_client_spec_1_cidr_block="{{ private_storage_subnet_cidr_block }}"
-exportfs_client_spec_2_cidr_block="{{ public_subnet_cidr_block }}"
-exportfs_client_spec_1_netmask=`ipcalc -m  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
-exportfs_client_spec_1_network=`ipcalc -n  $exportfs_client_spec_1_cidr_block | gawk -F "=" '{ print $2}'`
-exportfs_client_spec_2_netmask=`ipcalc -m  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
-exportfs_client_spec_2_network=`ipcalc -n  $exportfs_client_spec_2_cidr_block | gawk -F "=" '{ print $2}'`
-exportfs_client_spec_1="${exportfs_client_spec_1_network}/${exportfs_client_spec_1_netmask}"
-exportfs_client_spec_2="${exportfs_client_spec_2_network}/${exportfs_client_spec_2_netmask}"
-options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
-nfs_root_dir="${filesystem_dir}/exports"
-nfs_export1_dir="${nfs_root_dir}/export1"
+  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
+    exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+    exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
+    exportfs_client_spec_3="${exportfs_client_spec_3_network}/${exportfs_client_spec_3_netmask}"
+  fi
 
-if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
-  exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
-  exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
-  exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
-  exportfs_client_spec_3="${exportfs_client_spec_3_network}/${exportfs_client_spec_3_netmask}"
-fi
+  echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
+  echo "${nfs_root_dir} ${exportfs_client_spec_2}(${options})" >> /etc/exports
+  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
+  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
 
-ha_config_dir="/home/opc/ha_config"
+  # /mnt/nfsshare/exports   172.28.16.0/255.255.240.0(rw,sync,wdelay,hide,nocrossmnt,secure,no_root_squash,no_all_squash,no_subtree_check,insecure_locks,acl,no_pnfs,fsid=0,anonuid=65534,anongid=65534,sec=sys,rw,secure,no_root_squash,no_all_squash)
+
+  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    echo "${nfs_root_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
+    echo "${nfs_export1_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
+  fi
 
 
-echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
-echo "${nfs_root_dir} ${exportfs_client_spec_2}(${options})" >> /etc/exports
-echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
-echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
+  # Setup rsync to copy below files from Node1 to Node2, only if Node1 has a more updated file.  This assumes that Node1 will be used for all manual updates to the below files.
+  # Configure nodes to allow ssh for root user on both nodes.
+  mv /root/.ssh/authorized_keys /root/.ssh/authorized_keys.backup
+  cp /home/opc/.ssh/authorized_keys /root/.ssh/authorized_keys
+  cp /home/opc/.ssh/id_rsa /root/.ssh/id_rsa
 
-# /mnt/nfsshare/exports   172.28.16.0/255.255.240.0(rw,sync,wdelay,hide,nocrossmnt,secure,no_root_squash,no_all_squash,no_subtree_check,insecure_locks,acl,no_pnfs,fsid=0,anonuid=65534,anongid=65534,sec=sys,rw,secure,no_root_squash,no_all_squash)
-
-if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
-  echo "${nfs_root_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
-  echo "${nfs_export1_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
-fi
-
-
-# Setup rsync to copy below files from Node1 to Node2, only if Node1 has a more updated file.  This assumes that Node1 will be used for all manual updates to the below files.
-# Configure nodes to allow ssh for root user on both nodes.
-mv /root/.ssh/authorized_keys /root/.ssh/authorized_keys.backup
-cp /home/opc/.ssh/authorized_keys /root/.ssh/authorized_keys
-cp /home/opc/.ssh/id_rsa /root/.ssh/id_rsa
-
-# cronjob to rsync files every 1 minute from Node1 to Node2.
-if [ "$LOCAL_NODE" = "$NODE1" ]; then
-  echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/exports root@${NODE2}:/etc/exports  "  >> /var/spool/cron/root
-  echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/projid root@${NODE2}:/etc/projid  "  >> /var/spool/cron/root
-  echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/projects root@${NODE2}:/etc/projects  "  >> /var/spool/cron/root
-  # tail -f /var/log/cron
-fi
+  # cronjob to rsync files every 1 minute from Node1 to Node2.
+  if [ "$LOCAL_NODE" = "$NODE1" ]; then
+    echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/exports root@${NODE2}:/etc/exports  "  >> /var/spool/cron/root
+    echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/projid root@${NODE2}:/etc/projid  "  >> /var/spool/cron/root
+    echo  "* * * * * /bin/rsync -avziu -e ssh  /etc/projects root@${NODE2}:/etc/projects  "  >> /var/spool/cron/root
+    # tail -f /var/log/cron
+  fi
+} # end of function configure_nfs_server
 
 
 function configure_vip_move {
@@ -108,7 +101,8 @@ function configure_vip_move {
   touch /var/log/pacemaker_ip_move.log
   chown hacluster:haclient /var/log/pacemaker_ip_move.log
 
-}
+} # end of function configure_vip_move
+
 
 
   echo "Entering Shared Disk HA Script"
@@ -282,9 +276,9 @@ function configure_vip_move {
 
   fi
 
-  # call function
+  # call functions
   configure_vip_move
-
+  configure_nfs_server
 
 
 
