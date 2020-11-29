@@ -68,7 +68,7 @@ variable persistent_storage_server_shape { default = "VM.Standard2.2" }
 # Number of OCPU's for flex shape
 variable storage_server_ocpus { default = "1" }
 variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
-variable storage_server_hostname_prefix { default = "storage-server-" }
+variable storage_server_hostname_prefix { default = "nfs-server-" }
 
 # Only applicable if you plan to deploy NFS with HA (fs_ha = true, fs_type="Persistent")
 # Floating Virtual IP which gets assigned to an active node in an active/passive HA cluster. NFS clients will use this IP to connect to NFS cluster. If you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers, then provide an unused private IP from the 'secondary subnet'. For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance. If you plan to use VM .x or BM.HPC2.36 compute shapes for NFS file servers, then provide an unused private IP from 'primary subnet' to be used to install NFS servers. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs.

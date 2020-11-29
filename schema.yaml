@@ -241,7 +241,7 @@ variables:
   storage_server_hostname_prefix:
     type: string
     required: true
-    default: "storage-server-"
+    default: "nfs-server-"
     description: "Storage server hostname prefix "
     visible: true
 

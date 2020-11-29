@@ -363,8 +363,8 @@ function configure_vip_move {
     # With 3rd Quorum node - set no-quorum-policy=stop
     pcs -f /root/${pcs_cfg} property set no-quorum-policy=stop
     # Do not change the resource-stickiness value from 100. Using value like 200 resulted in cluster not fencing/stonithing the node which is network isolated during split brain test.
-    pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=100
-    pcs -f /root/${pcs_cfg} resource defaults migration-threshold=1
+#!    pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=100
+#!    pcs -f /root/${pcs_cfg} resource defaults migration-threshold=1
 
 
     pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0
@@ -442,14 +442,14 @@ function configure_vip_move {
     pcs -f /root/${pcs_cfg} alert create id=ip_move description="Move IP address using oci-cli" path=/var/lib/pacemaker/ip_move.sh
     pcs -f /root/${pcs_cfg} alert recipient add ip_move id=logfile_ip_move value=/var/log/pacemaker_ip_move.log
 
-    pcs -f /root/${pcs_cfg} constraint colocation add ${filesystem_name} with ${lv_name} INFINITY
-    pcs -f /root/${pcs_cfg} constraint order ${lv_name} then ${filesystem_name}
+#!  pcs -f /root/${pcs_cfg} constraint colocation add ${filesystem_name} with ${lv_name} INFINITY
+#!  pcs -f /root/${pcs_cfg} constraint order ${lv_name} then ${filesystem_name}
 
     # pcs constraint colocation add disk with ${filesystem_name} INFINITY
     # pcs constraint order disk then ${filesystem_name}
 
-    pcs -f /root/${pcs_cfg} constraint colocation add ${service_name} with ${filesystem_name} INFINITY
-    pcs -f /root/${pcs_cfg} constraint order ${filesystem_name} then ${service_name}
+#!  pcs -f /root/${pcs_cfg} constraint colocation add ${service_name} with ${filesystem_name} INFINITY
+#!  pcs -f /root/${pcs_cfg} constraint order ${filesystem_name} then ${service_name}
 
 
 #@#    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
@@ -475,8 +475,8 @@ function configure_vip_move {
 #@#    fi
 
     # OLD one without exportfs
-    pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
-    pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
+#!  pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
+#!  pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
 
 
   # end of if loop node = node1
