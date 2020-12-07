@@ -25,6 +25,7 @@ make_filesystem()
       umount ${mount_point}
     else
       echo "Keep the disk mounted."
+      echo "/dev/${vg_nfs_name}/${disk_name}  ${mount_point}   xfs     defaults,_netdev,noatime,inode64,nobarrier,uquota,prjquota        0 0" >> /etc/fstab
     fi
 }
 
