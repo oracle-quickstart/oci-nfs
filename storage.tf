@@ -3,7 +3,7 @@ resource "oci_core_volume" "storage_tier_blockvolume" {
   count = (var.fs_ha ? (local.derived_storage_server_node_count/2)*local.derived_storage_server_disk_count : local.derived_storage_server_disk_count * local.derived_storage_server_node_count)
   availability_domain = local.ad
   compartment_id      = var.compartment_ocid
-  display_name        = "storage-target${count.index % local.derived_storage_server_disk_count + 1}"
+  display_name        = "nfs-target${count.index % local.derived_storage_server_disk_count + 1}"
 
   size_in_gbs         = var.storage_tier_1_disk_size
   vpus_per_gb         = var.volume_type_vpus_per_gb_mapping[(var.storage_tier_1_disk_perf_tier)]
@@ -75,7 +75,7 @@ resource "oci_core_volume" "stonith_fencing_blockvolume" {
   count = (var.fs_ha ? 1 : 0)
   availability_domain = local.ad
   compartment_id      = var.compartment_ocid
-  display_name        = "stonith-fencing-sbd"
+  display_name        = "nfs-stonith-fencing-sbd"
   size_in_gbs         = "50"
   #  Lower cost Block volume
   vpus_per_gb         = "0"
