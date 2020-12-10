@@ -24,8 +24,11 @@ make_filesystem()
       # unmount it, since we want PCS to manage it.
       umount ${mount_point}
     else
+      # https://docs.cloud.oracle.com/en-us/iaas/Content/Block/References/fstaboptionsconsistentdevicepaths.htm#fstab_Options_for_Block_Volumes_Using_Consistent_Device_Paths
+      # https://askubuntu.com/questions/9939/what-do-the-last-two-fields-in-fstab-mean
+      # https://docs.cloud.oracle.com/en-us/iaas/Content/Block/References/fstaboptions.htm
       echo "Keep the disk mounted."
-      echo "/dev/${vg_nfs_name}/${disk_name}  ${mount_point}   xfs     defaults,_netdev,noatime,inode64,nobarrier,uquota,prjquota        0 0" >> /etc/fstab
+      echo "/dev/${vg_nfs_name}/${disk_name}  ${mount_point}   xfs     defaults,_netdev,nofail,noatime,inode64,nobarrier,uquota,prjquota        0 2" >> /etc/fstab
     fi
 }
 
