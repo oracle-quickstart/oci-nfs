@@ -19,7 +19,7 @@ resource "oci_core_instance" "bastion" {
   #fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
   shape               = var.bastion_shape
-  display_name        = "${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
+  display_name        = "${local.cluster_name}_${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
   metadata = {
     ssh_authorized_keys = "${var.ssh_public_key}\n${tls_private_key.ssh.public_key_openssh}"
     user_data           = base64encode(data.template_file.bastion_config.rendered)
@@ -153,7 +153,7 @@ resource "oci_core_instance" "storage_server" {
 
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
-  display_name        = "${var.storage_server_hostname_prefix}${format("%01d", count.index+1)}"
+  display_name        = "${local.cluster_name}_${var.storage_server_hostname_prefix}${format("%01d", count.index+1)}"
   shape               = local.derived_storage_server_shape
 
   source_details {
@@ -258,7 +258,7 @@ resource "oci_core_instance" "quorum_server" {
 
   fault_domain        = "FAULT-DOMAIN-3"
   compartment_id      = var.compartment_ocid
-  display_name        = var.quorum_server_hostname
+  display_name        = "${local.cluster_name}_${var.quorum_server_hostname}"
   shape               = var.quorum_server_shape
 
   source_details {

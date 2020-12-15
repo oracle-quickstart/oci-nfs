@@ -33,6 +33,8 @@ groupings:
     variables:
     - ssh_public_key
     - ad_name
+    - use_custom_name
+    - cluster_name
   - title: "VCN Configuration"
     visible: true
     variables:
@@ -109,6 +111,22 @@ variables:
     dependsOn:
       compartmentId: ${compartment_ocid}
     required: true
+
+  use_custom_name:
+    type: boolean
+    title: "use custom cluster name"
+    description: "Use custom name for cluster resources, especially in display name of resources shown in OCI console"
+    required: false
+    default: false
+
+  cluster_name:
+    title: "Custom Cluster Name"
+    description: "Custom cluster name. Example: Display name of storage block volumes will use <custom_cluster_name>_nfs_target1"
+    default: "nfs_cluster"
+    type: string
+    visible:
+      and:
+        - ${use_custom_name}
 
   bastion_shape:
     title: "Bastion Compute Shape"

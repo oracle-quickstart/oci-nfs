@@ -332,6 +332,13 @@ resource random_string hacluster_user_password {
 }
 
 
+variable "use_custom_name" {
+  default = 0
+}
+
+variable "cluster_name" {
+  default = "nfs_cluster"
+}
 
 
 

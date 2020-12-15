@@ -9,14 +9,14 @@ resource "oci_core_virtual_network" "nfs" {
   count          = var.use_existing_vcn ? 0 : 1
   cidr_block     = var.vcn_cidr
   compartment_id = var.compartment_ocid
-  display_name   = "nfs"
+  display_name   = "${local.cluster_name}_VCN"
   dns_label      = "nfs"
 }
 
 resource "oci_core_internet_gateway" "internet_gateway" {
   count          = var.use_existing_vcn ? 0 : 1
   compartment_id = var.compartment_ocid
-  display_name   = "internet_gateway"
+  display_name   = "${local.cluster_name}_internet_gateway"
   vcn_id         = oci_core_virtual_network.nfs[0].id
 }
 
@@ -24,7 +24,7 @@ resource "oci_core_route_table" "pubic_route_table" {
   count          = var.use_existing_vcn ? 0 : 1
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_virtual_network.nfs[0].id
-  display_name   = "RouteTableForComplete"
+  display_name   = "${local.cluster_name}_public_route_table"
   route_rules {
     cidr_block        = "0.0.0.0/0"
     network_entity_id = oci_core_internet_gateway.internet_gateway[0].id
@@ -36,7 +36,7 @@ resource "oci_core_nat_gateway" "nat_gateway" {
   count          = var.use_existing_vcn ? 0 : 1
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_virtual_network.nfs[0].id
-  display_name   = "nat_gateway"
+  display_name   = "${local.cluster_name}_nat_gateway"
 }
 
 
@@ -44,9 +44,9 @@ resource "oci_core_route_table" "private_route_table" {
   count          = var.use_existing_vcn ? 0 : 1
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_virtual_network.nfs[0].id
-  display_name   = "private_route_tableForComplete"
+  display_name   = "${local.cluster_name}_private_route_table"
   route_rules {
-    destination       = "0.0.0.0/0"
+    cidr_block        = "0.0.0.0/0"
     network_entity_id = oci_core_nat_gateway.nat_gateway[0].id
   }
 }
@@ -95,11 +95,11 @@ resource "oci_core_security_list" "private_security_list" {
 resource "oci_core_subnet" "public" {
   count             = var.use_existing_vcn ? 0 : 1
   cidr_block        = trimspace(local.derived_bastion_subnet_cidr)
-  display_name      = "public"
+  display_name      = "${local.cluster_name}_public"
   compartment_id    = var.compartment_ocid
   vcn_id            = oci_core_virtual_network.nfs[0].id
   route_table_id    = oci_core_route_table.pubic_route_table[0].id
-  security_list_ids = [oci_core_virtual_network.nfs[0].default_security_list_id, oci_core_security_list.public_security_list[0].id]
+  security_list_ids = [oci_core_security_list.public_security_list[0].id]
   dhcp_options_id   = oci_core_virtual_network.nfs[0].default_dhcp_options_id
   dns_label         = "public"
 }
@@ -109,11 +109,11 @@ resource "oci_core_subnet" "public" {
 resource "oci_core_subnet" "storage" {
   count                      = var.use_existing_vcn ? 0 : 1
   cidr_block                 = trimspace(local.derived_storage_subnet_cidr)
-  display_name               = "private_storage"
+  display_name               = "${local.cluster_name}_private_storage"
   compartment_id             = var.compartment_ocid
   vcn_id                     = oci_core_virtual_network.nfs[0].id
   route_table_id             = oci_core_route_table.private_route_table[0].id
-  security_list_ids          = [oci_core_virtual_network.nfs[0].default_security_list_id, oci_core_security_list.private_security_list[0].id]
+  security_list_ids          = [oci_core_security_list.private_security_list[0].id]
   dhcp_options_id            = oci_core_virtual_network.nfs[0].default_dhcp_options_id
   prohibit_public_ip_on_vnic = true
   dns_label                  = "storage"
@@ -122,11 +122,11 @@ resource "oci_core_subnet" "storage" {
 resource "oci_core_subnet" "fs" {
   count                      = local.create_fs_subnet
   cidr_block                 = trimspace(local.derived_fs_subnet_cidr)
-  display_name               = "private_fs"
+  display_name               = "${local.cluster_name}_private_fs"
   compartment_id             = var.compartment_ocid
   vcn_id                     = oci_core_virtual_network.nfs[0].id
   route_table_id             = oci_core_route_table.private_route_table[0].id
-  security_list_ids          = [oci_core_virtual_network.nfs[0].default_security_list_id, oci_core_security_list.private_security_list[0].id]
+  security_list_ids          = [oci_core_security_list.private_security_list[0].id]
   dhcp_options_id            = oci_core_virtual_network.nfs[0].default_dhcp_options_id
   prohibit_public_ip_on_vnic = true
   dns_label                  = "fs"

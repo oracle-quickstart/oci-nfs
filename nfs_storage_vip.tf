@@ -22,9 +22,6 @@ resource "oci_core_private_ip" "storage_vip_private_ip" {
     ip_address = local.nfs_server_ip
 }
 
-resource "random_pet" "name" {
-  length = 2
-}
 
 
 resource "oci_core_vnic_attachment" "storage_server_secondary_vnic_attachment" {

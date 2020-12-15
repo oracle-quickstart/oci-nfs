@@ -1,5 +1,11 @@
 
+resource "random_pet" "name" {
+  length = 2
+}
+
 locals {
+
+  cluster_name = var.use_custom_name ? var.cluster_name : random_pet.name.id
   storage_server_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? true : false)
   storage_server_hpc_shape = (length(regexall("HPC2", local.derived_storage_server_shape)) > 0 ? true : false)
   standard_storage_node_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? (length(regexall("Standard",local.derived_storage_server_shape)) > 0 ? true : false) : false)
