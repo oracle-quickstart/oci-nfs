@@ -65,9 +65,27 @@ The below two requirements are if you plan to deploy an active/passive high avai
 
              Allow dynamic-group nfs_high_availability to use vnics in compartment <your compartment>
 
-	     Allow dynamic-group nfs_high_availability to use subnets in compartment <your compartment>
+	         Allow dynamic-group nfs_high_availability to use subnets in compartment <your compartment>
 
 ```
+
+     3. If you plan to deploy in an **existing VCN & subnets**, then make sure the below ports are open for the 2 private subnets (in case of Baremetal NFS server or in one private subnet (in case of NFS server using VMs).  
+     
+     a. To keep it simple, you can open add below rules to allow all TCP and UDP traffic within VCN CIDR range. 
+
+```
+        Ingress Rule: Stateless: No, Source: VCN_CIDR ,  IP Protocol: TCP ,  Leave other fields empty/default.  
+        Ingress Rule: Stateless: No, Source: VCN_CIDR ,  IP Protocol: UDP ,  Leave other fields empty/default.  
+        Egress Rule: Stateless: No, Destination: 0.0.0.0/0 ,  IP Protocol: All Protocols  ,  Leave other fields empty/default.  
+```
+       OR 
+     b. Open only specific ports.  
+     
+        Ingress rules    
+            ![](./images/nfs_private_sl_ingress.png)
+        Egress rules
+            ![](./images/nfs_private_sl_egress.png)
+
 
 
 ## Marketplace Deployment 

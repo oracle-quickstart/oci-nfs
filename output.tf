@@ -5,11 +5,8 @@ value = <<END
 
         NFSv3 mount for root NFS shared folder (/mnt/nfsshare/exports): sudo mount -t nfs -o vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev  ${local.nfs_server_ip}:/mnt/nfsshare/exports  /mnt/nfs
 
-        NFSv3 mount for NFS shared folder (/mnt/nfsshare/exports/export1): sudo mount -t nfs -o vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev  ${local.nfs_server_ip}:/mnt/nfsshare/exports/export1  /mnt/nfs_export1
 
         NFSv4 mount for root NFS shared folder (/mnt/nfsshare/exports): sudo mount -t nfs -o vers=4,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev  ${local.nfs_server_ip}:/mnt/nfsshare/exports  /mnt/nfsv4
-
-        NFSv4 mount for NFS shared folder (/mnt/nfsshare/exports/export1): sudo mount -t nfs -o vers=4,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev  ${local.nfs_server_ip}:/mnt/nfsshare/exports/export1  /mnt/nfsv4_export1
 
 END
 }

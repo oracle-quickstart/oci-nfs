@@ -19,7 +19,6 @@ make_filesystem()
     mount -t xfs -o noatime,inode64,nobarrier,uquota,prjquota /dev/${vg_nfs_name}/${disk_name} ${mount_point}
     df -h
     mkdir -p ${mount_point}/exports
-    mkdir -p ${mount_point}/exports/export1
     if [ "{{ fs_ha }}" = "true" ]; then
       # unmount it, since we want PCS to manage it.
       umount ${mount_point}
@@ -139,6 +138,7 @@ socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | so
 if [ $((socketCount*coreIdCount)) -ge 24  ]; then
   sed -i "s/#RPCNFSDCOUNT=.*/RPCNFSDCOUNT=16/g" /etc/sysconfig/nfs
   # The above change require restart of systemctl restart  nfs-server, which will happen as part of NFS setup.
+  # To change the number of nfsd threads without restarting services to say 16, run the command: rpc.nfsd 16, but this change will be lost after nfs-server restart
 fi
 
 
@@ -190,19 +190,15 @@ else
 
   options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
   nfs_root_dir="${filesystem_dir}/exports"
-  nfs_export1_dir="${nfs_root_dir}/export1"
 
   mv /etc/exports /etc/exports.backup
 # it uses fsid values.  If fsid are used, then the client using NFSv4, need to use / to mount fsid=0 root and not /mnt/nfsshare/exports. Client code is currently using format: /mnt/nfsshare/exports also for NFSv4 for HA and non-HA.
 #  echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options},fsid=0) ${exportfs_client_spec_2}(${options},fsid=0) ${exportfs_client_spec_3}(${options},fsid=0) " >> /etc/exports
-#  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options},fsid=1) ${exportfs_client_spec_2}(${options},fsid=1) ${exportfs_client_spec_3}(${options},fsid=1) " >> /etc/exports
 
   if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
     echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options}) ${exportfs_client_spec_2}(${options}) ${exportfs_client_spec_3}(${options}) " >> /etc/exports
-    echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options}) ${exportfs_client_spec_2}(${options}) ${exportfs_client_spec_3}(${options}) " >> /etc/exports
   else
     echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options}) ${exportfs_client_spec_2}(${options}) " >> /etc/exports
-    echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options}) ${exportfs_client_spec_2}(${options}) " >> /etc/exports
   fi
 
   sudo systemctl restart nfs-server

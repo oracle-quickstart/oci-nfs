@@ -18,6 +18,7 @@ if [ "$version" = "7.8" ]; then
   export LANG=C.UTF-8
 fi
 ##### OCI/IPaddr Integration
+date
 if [ "${server}" = "${NODE1}" ]
 then
    ${ocibin} ${instanceprincipal} network vnic assign-private-ip --unassign-if-already-assigned --vnic-id ${node1vnic} --ip-address ${vnicip}

@@ -14,7 +14,6 @@ filesystem_device="/dev/{{ vg_name }}/{{ lv_name }}"
 filesystem_dir="/mnt/nfsshare"
 options="rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks"
 nfs_root_dir="${filesystem_dir}/exports"
-nfs_export1_dir="${nfs_root_dir}/export1"
 ha_config_dir="/home/opc/ha_config"
 
 group_name="nfsgroup"
@@ -44,14 +43,11 @@ function configure_nfs_server {
 
   echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
   echo "${nfs_root_dir} ${exportfs_client_spec_2}(${options})" >> /etc/exports
-  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
-  echo "${nfs_export1_dir} ${exportfs_client_spec_1}(${options})" >> /etc/exports
 
   # /mnt/nfsshare/exports   172.28.16.0/255.255.240.0(rw,sync,wdelay,hide,nocrossmnt,secure,no_root_squash,no_all_squash,no_subtree_check,insecure_locks,acl,no_pnfs,fsid=0,anonuid=65534,anongid=65534,sec=sys,rw,secure,no_root_squash,no_all_squash)
 
   if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
     echo "${nfs_root_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
-    echo "${nfs_export1_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
   fi
 
 
@@ -170,8 +166,15 @@ function configure_vip_move {
     fi
     node1vnic=`echo $node1vnic_w_quotes |  sed 's/"//g' ` ;
   fi
-  subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[0].subnetCidrBlock  ' | sed 's/"//g' ` ;
+
+
+  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[1].subnetCidrBlock  ' | sed 's/"//g' ` ;
+  else
+    subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[0].subnetCidrBlock  ' | sed 's/"//g' ` ;
+  fi
   cidr_netmask=`echo $subnetCidrBlock | gawk -F"/" '{ print $2 }'` ;
+
 
 
   echo "
@@ -362,10 +365,12 @@ function configure_vip_move {
     # In 2 nodes, there is no quorum. hence no-quorum-policy=ignore  instead of no-quorum-policy=stop
     # With 3rd Quorum node - set no-quorum-policy=stop
     pcs -f /root/${pcs_cfg} property set no-quorum-policy=stop
-    # Do not change the resource-stickiness value from 100. Using value like 200 resulted in cluster not fencing/stonithing the node which is network isolated during split brain test.
-#!    pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=100
-#!    pcs -f /root/${pcs_cfg} resource defaults migration-threshold=1
 
+    # If migration-threshold=INFINITY, a systemctl stop nfs-server will try to keep restarting the service on the same node instead of failover to other node.
+    # migration-threshold=1 - means after 1 failure, it will failover
+    pcs -f /root/${pcs_cfg} resource defaults migration-threshold=1
+    pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=0
+    # Another value to try is 100 for resource-stickiness. But do not use value higher than 100, it causes cluster to not fence/stonith the node which is network isolated during split brain test.
 
     pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0
     # A 5 seconds delay was added to NODE2 to ensure there is no race condition - fence-race.
@@ -387,12 +392,8 @@ function configure_vip_move {
     nfs_shared_infodir=${filesystem_dir}/nfsinfo nfs_no_notify=true \
     $pcs_group_parameter
 
-#@#pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_1 exportfs \
-#@#    --after nfs-daemon \
-#@#    clientspec=${exportfs_client_spec_1} \
-#@#    options=${options} \
-#@#    directory=${nfs_root_dir} \
-#@#    fsid=0  $pcs_group_parameter
+    pcs -f /root/${pcs_cfg} resource update nfs-daemon op stop timeout=50s
+
 
     # We need to use  " --force" to allow the same root folder to be exported for multiple subnets using fsid=0
     # Error: Value '0' of option 'fsid' is not unique across 'ocf:heartbeat:exportfs' resources. Following resources are configured with the same value of the instance attribute: 'nfs-root_client_spec_1', use --force to override
@@ -403,38 +404,8 @@ function configure_vip_move {
 #@#    directory=${nfs_root_dir} \
 #@#    fsid=0  $pcs_group_parameter  --force
 
-#@#    pcs -f /root/${pcs_cfg} resource create export1_client_spec_1 exportfs \
-#@#    --after nfs-root_client_spec_2  \
-#@#    clientspec=${exportfs_client_spec_1} \
-#@#    options=${options} \
-#@#    directory=${nfs_export1_dir} \
-#@#    fsid=1 $pcs_group_parameter  --force
 
 
-#@#    pcs -f /root/${pcs_cfg} resource create export1_client_spec_2 exportfs \
-#@#    --after export1_client_spec_1 \
-#@#    clientspec=${exportfs_client_spec_2} \
-#@#    options=${options} \
-#@#    directory=${nfs_export1_dir} \
-#@#    fsid=1  $pcs_group_parameter  --force
-
-#@#    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
-
-#@#       pcs -f /root/${pcs_cfg} resource create nfs-root_client_spec_3 exportfs \
-#@#       --after export1_client_spec_2 \
-#@#       clientspec=${exportfs_client_spec_3} \
-#@#       options=${options} \
-#@#       directory=${nfs_root_dir} \
-#@#       fsid=0  $pcs_group_parameter  --force
-
-#@#       pcs -f /root/${pcs_cfg} resource create export1_client_spec_3 exportfs \
-#@#       --after nfs-root_client_spec_3 \
-#@#       clientspec=${exportfs_client_spec_3} \
-#@#       options=${options} \
-#@#       directory=${nfs_export1_dir} \
-#@#       fsid=1  $pcs_group_parameter  --force
-
-#@#    fi
 
 
     pcs -f /root/${pcs_cfg} resource create ${ipaddr2_vip_name} ocf:heartbeat:IPaddr2 ip=${TARGET_VIP} cidr_netmask=${cidr_netmask} op monitor interval=20s $pcs_group_parameter
@@ -442,41 +413,10 @@ function configure_vip_move {
     pcs -f /root/${pcs_cfg} alert create id=ip_move description="Move IP address using oci-cli" path=/var/lib/pacemaker/ip_move.sh
     pcs -f /root/${pcs_cfg} alert recipient add ip_move id=logfile_ip_move value=/var/log/pacemaker_ip_move.log
 
-#!  pcs -f /root/${pcs_cfg} constraint colocation add ${filesystem_name} with ${lv_name} INFINITY
-#!  pcs -f /root/${pcs_cfg} constraint order ${lv_name} then ${filesystem_name}
-
-    # pcs constraint colocation add disk with ${filesystem_name} INFINITY
-    # pcs constraint order disk then ${filesystem_name}
-
-#!  pcs -f /root/${pcs_cfg} constraint colocation add ${service_name} with ${filesystem_name} INFINITY
-#!  pcs -f /root/${pcs_cfg} constraint order ${filesystem_name} then ${service_name}
 
 
-#@#    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_1 with ${service_name} INFINITY
-#@#    pcs -f /root/${pcs_cfg} constraint order ${service_name} then nfs-root_client_spec_1
-#@#    pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_2 with nfs-root_client_spec_1 INFINITY
-#@#    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_1 then nfs-root_client_spec_2
 
-#@#    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_1 with nfs-root_client_spec_2 INFINITY
-#@#    pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_2 then export1_client_spec_1
-#@#    pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_2 with export1_client_spec_1 INFINITY
-#@#    pcs -f /root/${pcs_cfg} constraint order export1_client_spec_1 then export1_client_spec_2
 
-#@#    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
-#@#      pcs -f /root/${pcs_cfg} constraint colocation add nfs-root_client_spec_3 with export1_client_spec_2 INFINITY
-#@#      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then nfs-root_client_spec_3
-#@#      pcs -f /root/${pcs_cfg} constraint colocation add export1_client_spec_3 with nfs-root_client_spec_3 INFINITY
-#@#      pcs -f /root/${pcs_cfg} constraint order nfs-root_client_spec_3 then export1_client_spec_3
-#@#      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_3 INFINITY
-#@#      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_3 then ${ipaddr2_vip_name}
-#@#    else
-#@#      pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with export1_client_spec_2 INFINITY
-#@#      pcs -f /root/${pcs_cfg} constraint order export1_client_spec_2 then ${ipaddr2_vip_name}
-#@#    fi
-
-    # OLD one without exportfs
-#!  pcs -f /root/${pcs_cfg} constraint colocation add ${ipaddr2_vip_name} with ${service_name} INFINITY
-#!  pcs -f /root/${pcs_cfg} constraint order ${service_name} then ${ipaddr2_vip_name}
 
 
   # end of if loop node = node1
