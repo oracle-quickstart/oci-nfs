@@ -367,11 +367,13 @@ function configure_vip_move {
     pcs -f /root/${pcs_cfg} property set no-quorum-policy=stop
 
     # If migration-threshold=INFINITY, a systemctl stop nfs-server will try to keep restarting the service on the same node instead of failover to other node.
-    # migration-threshold=1 - means after 1 failure, it will failover
-    pcs -f /root/${pcs_cfg} resource defaults migration-threshold=1
+    # migration-threshold=1 - means after 1 failure, it will failover.
+    # LINBIT recommended using 3, so failover does not happen if someone accidently does stop nfs-server outside pcs.
+    pcs -f /root/${pcs_cfg} resource defaults migration-threshold=3
     pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=0
-    # Another value to try is 100 for resource-stickiness. But do not use value higher than 100, it causes cluster to not fence/stonith the node which is network isolated during split brain test.
-
+    # LINBIT - to automatically cleanup failed monitor.  Wait for sometime, like 15m.  If the monitor is not continuously failing, then its okay for them to be cleaned up automically. 
+    pcs -f /root/${pcs_cfg} resource defaults failure-timeout=15m
+    
     pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0
     # A 5 seconds delay was added to NODE2 to ensure there is no race condition - fence-race.
     pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5
