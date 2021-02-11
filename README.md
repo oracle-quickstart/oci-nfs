@@ -69,9 +69,7 @@ The below two requirements are if you plan to deploy an active/passive high avai
 
 ```
 
-     3. If you plan to deploy in an **existing VCN & subnets**, then make sure the below ports are open for the 2 private subnets (in case of Baremetal NFS server or in one private subnet (in case of NFS server using VMs).  
-     
-       a. Add below rules to allow all TCP and UDP traffic within VCN CIDR range or for the 2 private subnets. 
+     3. If you plan to deploy in an **existing VCN & subnets**, then allow TCP & UDP traffic for the 2 private subnets (in case of Baremetal NFS server or in one private subnet (in case of NFS server using VMs). Add below rules to allow all TCP and UDP traffic within VCN CIDR range or for the 2 private subnets. 
 
 ```
         Ingress Rule: Stateless: No, Source: VCN_CIDR ,  IP Protocol: TCP ,  Leave other fields empty/default.  
