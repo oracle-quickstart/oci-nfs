@@ -371,12 +371,13 @@ function configure_vip_move {
     # LINBIT recommended using 3, so failover does not happen if someone accidently does stop nfs-server outside pcs.
     pcs -f /root/${pcs_cfg} resource defaults migration-threshold=3
     pcs -f /root/${pcs_cfg} resource defaults resource-stickiness=0
-    # LINBIT - to automatically cleanup failed monitor.  Wait for sometime, like 15m.  If the monitor is not continuously failing, then its okay for them to be cleaned up automically. 
+    # LINBIT - to automatically cleanup failed monitors.  Wait for sometime, like 15m.  If the monitor is not continuously failing, then its okay for them to be cleaned up automatically. 
     pcs -f /root/${pcs_cfg} resource defaults failure-timeout=15m
-    
-    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0
+
+    # default timeout in PCS is 20s, sometimes it takes more than 20s for stonith monitor calls, hence make it 40s.
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0 op monitor timeout=40s
     # A 5 seconds delay was added to NODE2 to ensure there is no race condition - fence-race.
-    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5  op monitor timeout=40s
 
     pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE1 avoids $NODE1
     pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE2 avoids $NODE2

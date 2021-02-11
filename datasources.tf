@@ -18,6 +18,12 @@ data "oci_core_instance" "quorum_server" {
   instance_id = element(concat(oci_core_instance.quorum_server.*.id, [""]), count.index)
 }
 
+data "oci_core_instance" "monitoring_server" {
+  count       = var.create_monitoring_server ? 1 : 0
+  instance_id = element(concat(oci_core_instance.monitoring_server.*.id, [""]), count.index)
+}
+
+
 data "oci_core_subnet" "private_storage_subnet" {
   subnet_id = local.storage_subnet_id
 }

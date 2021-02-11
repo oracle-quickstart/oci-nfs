@@ -60,6 +60,7 @@ resource "oci_core_instance" "bastion" {
       storage = zipmap(data.oci_core_instance.storage_server.*.display_name, data.oci_core_instance.storage_server.*.private_ip),
       compute = zipmap(data.oci_core_instance.client_node.*.display_name, data.oci_core_instance.client_node.*.private_ip),
       quorum = zipmap(data.oci_core_instance.quorum_server.*.display_name, data.oci_core_instance.quorum_server.*.private_ip),
+      monitor = zipmap(data.oci_core_instance.monitoring_server.*.display_name, data.oci_core_instance.monitoring_server.*.private_ip),
       fs_name = var.fs_name,
       fs_type = var.fs_type,
       fs_ha = var.fs_ha,
@@ -81,6 +82,9 @@ resource "oci_core_instance" "bastion" {
       standard_storage_node_dual_nics = local.standard_storage_node_dual_nics,
       private_fs_subnet_cidr_block = data.oci_core_subnet.private_fs_subnet.cidr_block,
       quorum_server_hostname = var.quorum_server_hostname,
+      install_monitor_agent = local.install_monitor_agent,
+      storage_tier_1_disk_count = var.storage_tier_1_disk_count,
+      storage_tier_1_disk_size = var.storage_tier_1_disk_size,
 
     })
 
@@ -303,3 +307,5 @@ resource "oci_core_instance" "quorum_server" {
   }
 
 }
+
+

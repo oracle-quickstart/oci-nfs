@@ -1,0 +1,267 @@
+#!/bin/bash
+
+set -x
+
+
+EXECNAME="PROMETHEUS"
+yum install prometheus -y -q
+cat > /lib/systemd/system/prometheus.service << EOF
+[Unit]
+Description=Prometheus daemon
+After=network.target
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart=/bin/prometheus --config.file=/etc/prometheus/prometheus.yml \
+    --storage.tsdb.path=/data0 \
+    --storage.tsdb.max-block-duration=30m \
+    --storage.tsdb.min-block-duration=30m \
+    --web.enable-lifecycle \
+    --log.level=info
+Restart=on-failure
+RestartSec=5s
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target
+EOF
+
+#local.derived_storage_server_node_count
+#local.derived_storage_server_shape
+#storage_server_shape="VM.Standard2.1"
+#storage_server_node_count=2
+
+region="region"
+date=`date +%Y%m%d-%H%M`
+
+cat > /etc/prometheus/prometheus.yml << EOF
+# my global config
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+  external_labels:
+    region: ${region}
+    monitor: infrastructure
+    replica: nfs-${date}
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      # - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  - job_name: 'prometheus'
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+    - targets: ['localhost:9090']
+EOF
+
+
+# storage_subnet_domain_name=storage.nfs.oraclevcn.com
+# storage_server_node_count=2
+# storage_tier_1_disk_perf_tier=Lower Cost
+# storage_server_hostname_prefix=nfs-server-
+# quorum_server_hostname=qdevice
+# fs_type=Persistent
+# fs_ha=true
+
+# subnet_domain_name="storage.nfs.oraclevcn.com"
+storage_server_node_count="{{ storage_server_node_count }}"
+storage_server_hostname_prefix="{{ storage_server_hostname_prefix }}"
+storage_subnet_domain_name="{{ storage_subnet_domain_name }}"
+quorum_server_hostname="{{ quorum_server_hostname }}"
+fs_ha="{{ fs_ha }}"
+storage_tier_1_disk_count="{{ storage_tier_1_disk_count }}"
+storage_tier_1_disk_size="{{ storage_tier_1_disk_size }}"
+
+if [ "${fs_ha}" = "true" ]; then
+  quorum_node_count=1
+else
+  quorum_node_count=0
+fi
+
+
+
+if [ "${fs_ha}" = "true" ]; then
+
+    server_list=""
+	a=0
+	z=0
+	while [ ${z} -lt ${storage_server_node_count} ]; do
+        server_array[${a}]="${storage_server_hostname_prefix}$((z+1)).${storage_subnet_domain_name}"
+		z=$((z+1))
+		a=$((a+1))
+	done;
+	for host in ${server_array[@]}; do
+        	if [ -z ${server_list} ]; then
+                	server_list="'${host}:9664', '${host}:9100'"
+	        else
+	                server_list="${server_list}, '${host}:9664', '${host}:9100'"
+	        fi
+	done;
+    quorum_list=""
+	a=0
+	z=0
+	while [ ${z} -lt ${quorum_node_count} ]; do
+        quorum_array[${a}]="${quorum_server_hostname}.${storage_subnet_domain_name}"
+		z=$((z+1))
+		a=$((a+1))
+	done;
+	for host in ${quorum_array[@]}; do
+        	if [ -z ${quorum_list} ]; then
+                	quorum_list="'${host}:9664', '${host}:9100'"
+	        else
+	                quorum_list="${quorum_list}, '${host}:9664', '${host}:9100'"
+	        fi
+	done;
+
+echo "${server_list}, ${quorum_list}"
+
+cat >> /etc/prometheus/prometheus.yml << EOF
+
+  - job_name: 'nfs-ha-cluster'
+
+    scrape_interval: 5s
+    static_configs:
+      - targets: [${server_list}, ${quorum_list}]
+        labels:
+          group: 'nfs-ha-cluster'
+
+EOF
+
+fi
+
+
+
+systemctl start prometheus ; systemctl status prometheus
+systemctl enable prometheus
+#  systemctl restart prometheus ; systemctl status prometheus
+
+
+
+EXECNAME="GRAFANA"
+curl -O https://dl.grafana.com/oss/release/grafana-7.1.5-1.x86_64.rpm
+yum install grafana-7.1.5-1.x86_64.rpm -y
+cat > /etc/grafana/provisioning/datasources/prometheus.yaml << EOF
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    url: http://localhost:9090
+EOF
+
+
+
+mkdir -p /etc/grafana/dashboards
+
+# curl https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/oci-metrics-dashboard_rev1.json -o /etc/grafana/dashboards/oci-metrics-dashboard_rev1.json
+# curl https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/node-exporter-grafana.json -o /etc/grafana/dashboards/node-exporter.json.old
+
+# I don't plan to use node_exporter.yaml,  since its not generic enough
+
+cat > /etc/grafana/provisioning/dashboards/node_exporter.yaml.old << EOF
+apiVersion: 1
+providers:
+  - name: 'NFS Cluster IaaS Dashboard'
+    type: file
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/dashboards/node-exporter.json
+EOF
+
+
+case $storage_server_shape in
+        VM.Standard2.1)
+        NETWORK_WARN=600000000
+        NETWORK_CRIT=900000000
+        ;;
+        VM.Standard2.2)
+        NETWORK_WARN=1200000000
+        NETWORK_CRIT=1800000000
+        ;;
+        VM.Standard2.4)
+        NETWORK_WARN=2460000000
+        NETWORK_CRIT=3690000000
+        ;;
+        VM.Standard2.8)
+        NETWORK_WARN=4920000000
+        NETWORK_CRIT=7380000000
+        ;;
+        VM.Standard2.16)
+        NETWORK_WARN=9840000000
+        NETWORK_CRIT=14760000000
+        ;;
+        BM.HPC2.36|VM.Standard2.24)
+        NETWORK_WARN=14760000000
+        NETWORK_CRIT=22140000000
+        ;;
+	    VM.Standard.E3.Flex)
+	    NETWORK_WARN=$((dynamic_worker_ocpu*75000000))
+	    NETWORK_CRIT=$((dynamic_worker_ocpu*112500000))
+	    ;;
+        *)
+        NETWORK_WARN=14760000000
+        NETWORK_CRIT=22500000000
+        ;;
+esac
+echo "NETWORK WARN - $NETWORK_WARN"
+echo "NETWORK CRIT - $NETWORK_CRIT"
+sed -i "s/NETWORK_WARN/${NETWORK_WARN}/g" /etc/grafana/dashboards/node-exporter.json
+sed -i "s/NETWORK_CRIT/${NETWORK_CRIT}/g" /etc/grafana/dashboards/node-exporter.json
+
+block_volumes_per_server=${storage_tier_1_disk_count}
+AGGREGATE_WORKER_DISK=$((block_volumes_per_server*480000000))
+DISK_WARN=$(((AGGREGATE_WORKER_DISK/10)*6))
+DISK_CRIT=$(((AGGREGATE_WORKER_DISK/10)*9))
+echo "DISK THRESHOLDS : $DISK_WARN $DISK_CRIT"
+sed -i "s/DISK_WARN/${DISK_WARN}/g" /etc/grafana/dashboards/node-exporter.json
+sed -i "s/DISK_CRIT/${DISK_CRIT}/g" /etc/grafana/dashboards/node-exporter.json
+
+
+# Add Pacemaker HA clusters monitoring config
+mkdir -p /etc/grafana/dashboards/sleha/
+curl https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/ha-cluster-details_rev2.json -o /etc/grafana/dashboards/sleha/ha-cluster-details_rev2.json
+curl https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/provider-sleha.yaml  -o /etc/grafana/provisioning/dashboards/provider-sleha.yaml
+
+# https://grafana.com/grafana/plugins/oci-metrics-datasource
+grafana-cli plugins install oci-metrics-datasource
+
+systemctl start grafana-server ; systemctl status grafana-server
+systemctl enable grafana-server
+#  systemctl restart grafana-server ; systemctl status grafana-server
+
+exit 0
+
+
+# The dashboard json should have the below to automatically use the "oci-metrics-datasource" to pull values from OCI Monitoring.
+"__inputs": [
+{
+"name": "DS_OCI_METRICS",
+"label": "oci_metrics",
+"description": "",
+"type": "datasource",
+"pluginId": "oci-metrics-datasource",
+"pluginName": "Oracle Cloud Infrastructure Metrics"
+},
+
+# plugin docs:  https://grafana.com/grafana/plugins/oci-metrics-datasource
+
+# working copy of dashboard
+#  curl https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/oci_metrics_working-1612884920440.json  -o /etc/grafana/dashboards/oci_metrics_working-1612884920440.json
+# It requires the data source to be configured, so after initial install, the data source needs to be configured via Grafana GUI for it to work.  Also may be log out and login again or restart grafana.
+
+

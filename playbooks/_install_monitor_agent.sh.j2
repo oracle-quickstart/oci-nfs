@@ -1,0 +1,70 @@
+#!/bin/bash
+
+set -x
+
+# install Prometheus Node Exporter for IaaS metrics
+# port 9100
+cd /opt/
+curl -O https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/node_exporter-1.0.1.linux-amd64.tar.gz
+tar -xvf /opt/node_exporter-1.0.1.linux-amd64.tar.gz
+cat > /lib/systemd/system/node_exporter.service << EOF
+[Unit]
+Description=Prometheus Node Exporter daemon for IaaS
+After=network.target
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart=/opt/node_exporter-1.0.1.linux-amd64/node_exporter --collector.systemd 
+Restart=on-failure
+RestartSec=5s
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl start node_exporter
+systemctl enable node_exporter
+
+
+# install Prometheus Node Exporter for Pacemaker HA clusters metrics
+# port 9664
+yum install -y -q git
+curl -O https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/go1.15.8.linux-amd64.tar.gz
+tar -C /usr/local -xzf go1.15.8.linux-amd64.tar.gz
+
+echo '
+export GOROOT="/usr/local/go"
+export GOBIN="$HOME/go/bin"
+mkdir -p $GOBIN
+export PATH=$PATH:$GOROOT/bin:$GOBIN
+' >> /root/.bashrc
+source /root/.bashrc
+go version
+go get github.com/golang/mock/mockgen
+
+git clone https://github.com/ClusterLabs/ha_cluster_exporter
+cd ha_cluster_exporter
+make
+make install
+
+cat > /lib/systemd/system/ha_cluster_exporter.service << EOF
+[Unit]
+Description=Prometheus exporter for Pacemaker HA clusters metrics
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/root/go/bin/ha_cluster_exporter
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl start ha_cluster_exporter ; systemctl status ha_cluster_exporter
+#  systemctl restart ha_cluster_exporter ; systemctl status ha_cluster_exporter
+#  systemctl daemon-reload
+systemctl enable ha_cluster_exporter
+

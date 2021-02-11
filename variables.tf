@@ -129,6 +129,15 @@ variable storage_tier_1_disk_size {
   description = "Select size in GB for each block volume/disk, min 50.  Total NFS filesystem raw capacity will be NUMBER OF BLOCK VOLUMES * BLOCK VOLUME SIZE."
 }
 
+
+# Create a node to run Grafana/Prometheus for monitoring NFS and OCI IaaS.
+variable create_monitoring_server { default = "false" }
+variable monitoring_server_shape { default = "VM.Standard2.1" }
+# Number of OCPU's for flex shape
+variable monitoring_server_ocpus { default = "1" }
+variable monitoring_server_hostname { default = "nfs-grafana" }
+
+
 variable instance_os {
     description = "Operating system for compute instances"
     default = "Oracle Linux"
@@ -158,49 +167,6 @@ variable ssh_public_key {
 
 variable ssh_user { default = "opc" }
 
-
-/*
-variable imagesC {
-  type = map(string)
-  default = {
-    // https://docs.cloud.oracle.com/iaas/images/image/96ad11d8-2a4f-4154-b128-4d4510756983/
-    // See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
-    // Oracle-provided image "CentOS-7-2018.08.15-0"
-    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaavsw2452x5psvj7lzp7opjcpj3yx7or4swwzl5vrdydxtfv33sbmqa"
-    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaahhgvnnprjhfmzynecw2lqkwhztgibz5tcs3x4d5rxmbqcmesyqta"
-    uk-london-1    = "ocid1.image.oc1.uk-london-1.aaaaaaaa3iltzfhdk5m6f27wcuw4ttcfln54twkj66rsbn52yemg3gi5pkqa"
-    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaaa2ph5vy4u7vktmf3c6zemhlncxkomvay2afrbw5vouptfbydwmtq"
-  }
-}
-*/
-
-// See https://docs.cloud.oracle.com/en-us/iaas/images/image/0a72692a-bdbb-46fc-b17b-6e0a3fedeb23/
-// Oracle-provided image "Oracle-Linux-7.7-2020.01.28-0"
-// Kernel Version: 4.14.35-1902.10.4.el7uek.x86_64
-
-variable images {
-  type = map(string)
-  default = {
-    ap-melbourne-1 = "ocid1.image.oc1.ap-melbourne-1.aaaaaaaa3fvafraincszwi36zv2oeangeitnnj7svuqjbm2agz3zxhzozadq"
-    ap-mumbai-1 = "ocid1.image.oc1.ap-mumbai-1.aaaaaaaabyd7swhvmsttpeejgksgx3faosizrfyeypdmqdghgn7wzed26l3q"
-    ap-osaka-1 = "ocid1.image.oc1.ap-osaka-1.aaaaaaaa7eec33y25cvvanoy5kf5udu3qhheh3kxu3dywblwqerui3u72nua"
-    ap-seoul-1 = "ocid1.image.oc1.ap-seoul-1.aaaaaaaai233ko3wxveyibsjf5oew4njzhmk34e42maetaynhbljbvkzyqqa"
-    ap-sydney-1 = "ocid1.image.oc1.ap-sydney-1.aaaaaaaaeb3c3kmd3yfaqc3zu6ko2q6gmg6ncjvvc65rvm3aqqzi6xl7hluq"
-    ap-tokyo-1 = "ocid1.image.oc1.ap-tokyo-1.aaaaaaaattpocc2scb7ece7xwpadvo4c5e7iuyg7p3mhbm554uurcgnwh5cq"
-    ca-toronto-1 = "ocid1.image.oc1.ca-toronto-1.aaaaaaaa4u2x3aofmhogbw6xsckha6qdguiwqvh5ibnbuskfo2k6e3jhdtcq"
-    eu-amsterdam-1 = "ocid1.image.oc1.eu-amsterdam-1.aaaaaaaan5tbzuvtyd5lwxj66zxc7vzmpvs5axpcxyhoicbr6yxgw2s7nqvq"
-    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaa4xluwijh66fts4g42iw7gnixntcmns73ei3hwt2j7lihmswkrada"
-    eu-zurich-1 = "ocid1.image.oc1.eu-zurich-1.aaaaaaaagj2saw4bisxyfe5joary52bpggvpdeopdocaeu2khpzte6whpksq"
-    me-jeddah-1 = "ocid1.image.oc1.me-jeddah-1.aaaaaaaaczhhskrjad7l3vz2u3zyrqs4ys4r57nrbxgd2o7mvttzm4jryraa"
-    sa-saopaulo-1 = "ocid1.image.oc1.sa-saopaulo-1.aaaaaaaabm464lilgh2nqw2vpshvc2cgoeuln5wgrfji5dafbiyi4kxtrmwa"
-    uk-gov-london-1 = "ocid1.image.oc4.uk-gov-london-1.aaaaaaaa3badeua232q6br2srcdbjb4zyqmmzqgg3nbqwvp3ihjfac267glq"
-    uk-london-1 = "ocid1.image.oc1.uk-london-1.aaaaaaaa2jxzt25jti6n64ks3hqbqbxlbkmvel6wew5dc2ms3hk3d3bdrdoa"
-    us-ashburn-1 = "ocid1.image.oc1.iad.aaaaaaaamspvs3amw74gzpux4tmn6gx4okfbe3lbf5ukeheed6va67usq7qq"
-    us-langley-1 = "ocid1.image.oc2.us-langley-1.aaaaaaaawzkqcffiqlingild6jqdnlacweni7ea2rm6kylar5tfc3cd74rcq"
-    us-luke-1 = "ocid1.image.oc2.us-luke-1.aaaaaaaawo4qfu7ibanw2zwefm7q7hqpxsvzrmza4uwfqvtqg2quk6zghqia"
-    us-phoenix-1 = "ocid1.image.oc1.phx.aaaaaaaamff6sipozlita6555ypo5uyqo2udhjqwtrml2trogi6vnpgvet5q"
-  }
-}
 
 # Not used for normal terraform apply, added for ORM deployments.
 variable ad_name {
@@ -267,53 +233,7 @@ variable mp_listing_resource_id { default = "ocid1.image.oc1..aaaaaaaabxwrflhsoa
 variable mp_listing_resource_version { default = "1.0" }
 variable use_marketplace_image { default = true }
 
-#-------------------------------------------------------------------------------------------------------------
-# Marketplace variables
-# hpc-filesystem-BeeGFS-OL77_4.14.35-1902.10.4.el7uek.x86_64
-# Oracle Linux 7.7 UEK Image for BeeGFS filesystem on Oracle Cloud Infrastructure
 # ------------------------------------------------------------------------------------------------------------
-/*
-variable mp_listing_id {
-  default = "ocid1.appcataloglisting.oc1..aaaaaaaadu427jmx3pbdw76ek6xkgin4ucmfbrlsavb45snvzk5d7ckrs3nq"
-}
-variable mp_listing_resource_id {
-  default = "ocid1.image.oc1..aaaaaaaa6pvs3ovuveqb7pepzjhemyykkyjae7tttrb2fkf5adzwqm3izvxq"
-}
-variable mp_listing_resource_version {
- default = "1.0"
-}
-
-variable use_marketplace_image {
-  default = true
-}
-*/
-# ------------------------------------------------------------------------------------------------------------
-
-
-#-------------------------------------------------------------------------------------------------------------
-# Marketplace variables
-# hpc-filesystem-BeeGFS-OL77_3.10.0-1062.9.1.el7.x86_64
-# ------------------------------------------------------------------------------------------------------------
-
-# variable mp_listing_id {
-#   default = "ocid1.appcataloglisting.oc1..aaaaaaaajmdokvtzailtlchqxk7nai45fxar6em7dfbdibxmspjsvs4uz3uq"
-# }
-# variable mp_listing_resource_id {
-#   default = "ocid1.image.oc1..aaaaaaaacnodhlnuidkvnlvu3dpu4n26knkqudjxzfpq3vexi7cobbclmbxa"
-# }
-# variable mp_listing_resource_version {
-#  default = "1.0"
-# }
-
-# variable use_marketplace_image {
-#   default = true
-# }
-
-# ------------------------------------------------------------------------------------------------------------
-
-
-
-
 
 
 

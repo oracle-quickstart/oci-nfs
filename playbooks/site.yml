@@ -70,3 +70,6 @@
   when:
     - fs_name == "NFS"
 
+- import_playbook: grafana.yml
+  when: install_monitor_agent|bool
+

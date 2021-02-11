@@ -18,6 +18,7 @@ locals {
   is_quorum_server_flex_shape = var.quorum_server_shape == "VM.Standard.E3.Flex" ? [var.quorum_server_ocpus]:[]
   is_storage_server_flex_shape = var.persistent_storage_server_shape == "VM.Standard.E3.Flex" ? [var.storage_server_ocpus]:[]
   is_client_node_flex_shape = var.client_node_shape == "VM.Standard.E3.Flex" ? [var.client_node_ocpus]:[]
+  is_monitoring_server_flex_shape = var.monitoring_server_shape == "VM.Standard.E3.Flex" ? [var.monitoring_server_ocpus]:[]
 
   # If ad_number is non-negative use it for AD lookup, else use ad_name.
   # Allows for use of ad_number in TF deploys, and ad_name in ORM.
@@ -32,7 +33,6 @@ locals {
 
   bastion_subnet_id = var.use_existing_vcn ? var.bastion_subnet_id : element(concat(oci_core_subnet.public.*.id, [""]), 0)
   image_id          = (var.use_marketplace_image ? var.mp_listing_resource_id : data.oci_core_images.InstanceImageOCID.images.0.id)
-  # var.images[var.region]
   storage_subnet_id = var.use_existing_vcn ? var.storage_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
   # If shape is VM* or BM.HPC2.36, then fs_subnet_id will be set to storage_subnet_id rather than setting to "". 
   fs_subnet_id        = var.use_existing_vcn ? (local.storage_server_dual_nics ? var.fs_subnet_id : var.storage_subnet_id) : (local.storage_server_dual_nics ? element(concat(oci_core_subnet.fs.*.id, [""]), 0) :  element(concat(oci_core_subnet.storage.*.id, [""]), 0))
@@ -43,6 +43,9 @@ locals {
 
   nfs = (length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
   nfs_server_ip = (var.fs_ha ? (var.ha_vip_private_ip) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )
+
+  # Grafana monitoring
+  install_monitor_agent=((var.create_monitoring_server) ? true : false )
 
 }
 

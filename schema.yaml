@@ -95,6 +95,19 @@ groupings:
     - client_node_hostname_prefix
     - mount_point
 
+  - title: "Grafana Monitoring Server - Optional"
+    visible:
+      and:
+        - ${fs_ha}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+    variables:
+    - create_monitoring_server
+    - monitoring_server_shape
+    - monitoring_server_ocpus
+    - monitoring_server_hostname
+
 
 # Add variable here ,  if you want to do input validation or else it does not need to be included here.
 variables:
@@ -519,7 +532,7 @@ variables:
   quorum_server_shape:
     title: "Quorum Server Compute Shape"
     description: "Shape for Quorum node. A minimum of 3 nodes (2 NFS Server node + 1 Quorum node) are required to ensure that a cluster always has a quorum of nodes to maintain a healthy active cluster."
-    default: "VM.Standard2.2"
+    default: "VM.Standard2.1"
     required: true
     type: enum
     enum:
@@ -606,3 +619,65 @@ variables:
       not:
         - ${use_existing_vcn}
     required: false
+
+  create_monitoring_server:
+    type: boolean
+    title: "Create Grafana Monitoring Server"
+    description: "Select checkbox, if you want to create Grafana monitoring node to view Pacemaker/Corosync and IaaS metrics"
+    required: false
+    default: false
+
+  monitoring_server_shape:
+    title: "Grafana Monitoring Server Shape"
+    description: "Shape for monitoring instance. Node will be created in NFS server primary private subnet."
+    default: "VM.Standard2.2"
+    required: true
+    visible: ${create_monitoring_server}
+    type: enum
+    enum:
+    - "VM.DenseIO2.8"
+    - "VM.DenseIO2.16"
+    - "VM.DenseIO2.24"
+    - "VM.Standard2.1"
+    - "VM.Standard2.2"
+    - "VM.Standard2.4"
+    - "VM.Standard2.8"
+    - "VM.Standard2.16"
+    - "VM.Standard2.24"
+    - "VM.Standard.E2.1"
+    - "VM.Standard.E2.2"
+    - "VM.Standard.E2.4"
+    - "VM.Standard.E2.8"
+    - "VM.Standard.E3.Flex"
+    - "VM.GPU3.1"
+    - "VM.GPU3.2"
+    - "VM.GPU3.4"
+    - "BM.Standard2.52"
+    - "BM.Standard.E2.64"
+    - "BM.Standard.E3.128"
+    - "BM.DenseIO2.52"
+    - "BM.HPC2.36"
+    - "BM.GPU3.8"
+    - "BM.GPU4.8"
+
+  monitoring_server_ocpus:
+    title: Cores
+    type: integer
+    description: Number of OCPU's for flex shape
+    minimum: 1
+    maximum: 64
+    default: 2
+    visible:
+      eq:
+        - ${monitoring_server_shape}
+        - "VM.Standard.E3.Flex"
+    required: true
+
+  monitoring_server_hostname:
+    title: "Grafana Monitoring Server Hostname"
+    type: string
+    required: true
+    default: "nfs-grafana"
+    description: "Grafana Monitoring Server Hostname "
+    visible: ${create_monitoring_server}
+

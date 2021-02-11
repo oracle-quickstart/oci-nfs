@@ -12,11 +12,16 @@ ${host} ansible_host=${ip} ansible_user=opc role=quorum
 %{ for host, ip in compute ~}
 ${host} ansible_host=${ip} ansible_user=opc role=compute
 %{ endfor ~}
+[monitor]
+%{ for host, ip in monitor ~}
+${host} ansible_host=${ip} ansible_user=opc role=monitor
+%{ endfor ~}
 [all:children]
 bastion
 storage
 compute
 quorum
+monitor
 [all:vars]
 ansible_connection=ssh
 ansible_user=opc
@@ -44,3 +49,6 @@ filesystem_subnet_domain_name=${filesystem_subnet_domain_name}
 standard_storage_node_dual_nics=${standard_storage_node_dual_nics}
 private_fs_subnet_cidr_block=${private_fs_subnet_cidr_block}
 quorum_server_hostname=${quorum_server_hostname}
+install_monitor_agent=${install_monitor_agent}
+storage_tier_1_disk_count=${storage_tier_1_disk_count}
+storage_tier_1_disk_size=${storage_tier_1_disk_size}

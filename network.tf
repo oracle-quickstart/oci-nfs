@@ -84,12 +84,18 @@ resource "oci_core_security_list" "private_security_list" {
     protocol    = "all"
   }
 
-/*
+
+  # TCP for NFSv3
   ingress_security_rules  {
-    protocol = "all"
+    protocol = "6"
     source   = var.vcn_cidr
   }
-*/
+  # UDP for NFSv3
+  ingress_security_rules  {
+    protocol = "17"
+    source   = var.vcn_cidr
+  }
+
   # Allow ssh traffic
   ingress_security_rules {
     tcp_options {
@@ -100,147 +106,29 @@ resource "oci_core_security_list" "private_security_list" {
     source   = var.vcn_cidr
   }
 
-  # rpcinfo -p
-  # https://www.systutorials.com/fixing-ports-used-by-nfs-server/
-  # rpcbind listens on TCP and UDP port 111
+  # Required for node exporter for IaaS metrics for monitoring
   ingress_security_rules {
     tcp_options {
-      max = 111
-      min = 111
+      max = 9100
+      min = 9100
     }
     protocol = "6"
     source   = var.vcn_cidr
   }
-
-  ingress_security_rules {
-    udp_options {
-      max = 111
-      min = 111
-    }
-    protocol = "17"
-    source   = var.vcn_cidr
-  }
-
-  # nfsd listens on TCP and UDP port 2049
+  # Required for pacemaker/corosync node exporter metrics
   ingress_security_rules {
     tcp_options {
-      max = 2049
-      min = 2049
+      max = 9664
+      min = 9664
     }
     protocol = "6"
     source   = var.vcn_cidr
   }
-
-  ingress_security_rules {
-    udp_options {
-      max = 2049
-      min = 2049
-    }
-    protocol = "17"
-    source   = var.vcn_cidr
-  }
-
-  # RQUOTAD_PORT=875
+  # Required for running Grafana GUI at port 3000
   ingress_security_rules {
     tcp_options {
-      max = 875
-      min = 875
-    }
-    protocol = "6"
-    source   = var.vcn_cidr
-  }
-
-  ingress_security_rules {
-    udp_options {
-      max = 875
-      min = 875
-    }
-    protocol = "17"
-    source   = var.vcn_cidr
-  }
-
-  # LOCKD_TCPPORT=32803
-  ingress_security_rules {
-    tcp_options {
-      max = 32803
-      min = 32803
-    }
-    protocol = "6"
-    source   = var.vcn_cidr
-  }
-  # LOCKD_UDPPORT=32769
-  ingress_security_rules {
-    udp_options {
-      max = 32769
-      min = 32769
-    }
-    protocol = "17"
-    source   = var.vcn_cidr
-  }
-
-  # MOUNTD_PORT=892
-  ingress_security_rules {
-    tcp_options {
-      max = 892
-      min = 892
-    }
-    protocol = "6"
-    source   = var.vcn_cidr
-  }
-
-  ingress_security_rules {
-    udp_options {
-      max = 892
-      min = 892
-    }
-    protocol = "17"
-    source   = var.vcn_cidr
-  }
-
-  # STATD_PORT=662
-  ingress_security_rules {
-    tcp_options {
-      max = 662
-      min = 662
-    }
-    protocol = "6"
-    source   = var.vcn_cidr
-  }
-
-  ingress_security_rules {
-    udp_options {
-      max = 662
-      min = 662
-    }
-    protocol = "17"
-    source   = var.vcn_cidr
-  }
-
-  # corosync-qnetd=5403
-  ingress_security_rules {
-    tcp_options {
-      max = 5403
-      min = 5403
-    }
-    protocol = "6"
-    source   = var.vcn_cidr
-  }
-
-  # corosync-qnetd=5405
-  ingress_security_rules {
-    udp_options {
-      max = 5405
-      min = 5405
-    }
-    protocol = "17"
-    source   = var.vcn_cidr
-  }
-
-  # Required for NFSHA nodes to comm with qdevice node for pcs cluster auth
-  ingress_security_rules {
-    tcp_options {
-      max = 2224
-      min = 2224
+      max = 3000
+      min = 3000
     }
     protocol = "6"
     source   = var.vcn_cidr
