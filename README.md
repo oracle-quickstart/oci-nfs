@@ -140,3 +140,12 @@ terraform apply
 
 ### Filesystem mounted on clients 
 ![](./images/oci-nfs-client-df-h.png)
+
+
+## Grafana Dashboard for HA Cluster Resources (Corosync/Pacemaker)
+Optionally, this template can deploy a Grafana monitoring server and metrics collectors on all NFS-HA nodes to monitor HA Cluster resources.  It uses a dashboard from ClusterLabs.org.  
+
+![](./images/NFS-HA-Grafana-Dashboard-for-HA-Pacemaker-Corosync-Monitoring.png)
+
+
+
