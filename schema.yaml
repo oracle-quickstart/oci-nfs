@@ -23,6 +23,7 @@ groupings:
     - fs_name
     - instance_os
     - linux_os_version
+    - marketplace_source_images
   - title: "NFS Filesystem Configuration"
     visible: true
     variables:
@@ -56,6 +57,7 @@ groupings:
     - bastion_ocpus
     - bastion_node_count
     - bastion_hostname_prefix
+    - bastion_boot_volume_size
   - title: "NFS Server Instance Configuration"
     visible: true
     variables:
@@ -64,6 +66,7 @@ groupings:
     - storage_server_ocpus
     - storage_server_node_count
     - storage_server_hostname_prefix
+    - storage_server_boot_volume_size
   - title: "NFS Storage Configuration"
     variables:
     - storage_tier_1_disk_perf_tier
@@ -202,6 +205,13 @@ variables:
     description: "Bastion hostname prefix "
     visible: true
 
+  bastion_boot_volume_size:
+    type: integer
+    required: true
+    minimum: 50
+    title: "Size of the boot volume in GB"
+    default: 100
+
   scratch_storage_server_shape:
     title: "NFS Storage Server Compute Shape"
     description: "Shape for storage server instances. DenseIO shapes come with local NVMe SSDs which will be used for storage."
@@ -275,6 +285,13 @@ variables:
     default: "nfs-server-"
     description: "Storage server hostname prefix "
     visible: true
+
+  storage_server_boot_volume_size:
+    type: integer
+    required: true
+    minimum: 50
+    title: "Size of the boot volume in GB. Recommend using 200-300 GB in production to ensure there is enough space for logs."
+    default: 300
 
   storage_tier_1_disk_perf_tier:
     title: "Block Volume Storage Performance tier"

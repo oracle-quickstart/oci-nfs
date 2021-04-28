@@ -2,12 +2,11 @@ totem {
     version: 2
     cluster_name: nfs_cluster
     transport: udpu
-    interface {
-        ringnumber: 0
-        Bindnetaddr: LOCAL_NODE_IP
-        broadcast: yes
-        mcastport: 5405
-    }
+    token: 6000
+    consensus: 7200
+    # join: 160
+    # token_retransmits_before_loss_const: 20
+    
 }
 nodelist {
     node {
@@ -33,5 +32,11 @@ logging {
     logfile: /var/log/corosync/corosync.log
     timestamp: on
     to_syslog: yes
+    # Log debug messages (very verbose). When in doubt, leave off. To turn on debug: on
+    debug: off
 }
 
+# https://www.thegeekdiary.com/how-to-change-pacemaker-cluster-heartbeat-timeout-in-centos-rhel-7/
+# pcs cluster sync
+# pcs cluster reload corosync
+# corosync-cmapctl | egrep -i "consensus|token|retrans|join"

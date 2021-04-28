@@ -374,10 +374,12 @@ function configure_vip_move {
     # LINBIT - to automatically cleanup failed monitors.  Wait for sometime, like 15m.  If the monitor is not continuously failing, then its okay for them to be cleaned up automatically. 
     pcs -f /root/${pcs_cfg} resource defaults failure-timeout=15m
 
-    # default timeout in PCS is 20s, sometimes it takes more than 20s for stonith monitor calls, hence make it 40s.
-    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0 op monitor timeout=40s
+    # default timeout in PCS is 20s, sometimes it takes more than 20s for stonith monitor calls, hence make it 50s.
+    # default Stonith monitor interval=60s
+    # sudo pcs stonith show --full
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0 op monitor timeout=50s
     # A 5 seconds delay was added to NODE2 to ensure there is no race condition - fence-race.
-    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5  op monitor timeout=40s
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5  op monitor timeout=50s
 
     pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE1 avoids $NODE1
     pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE2 avoids $NODE2
@@ -388,14 +390,19 @@ function configure_vip_move {
     device="${filesystem_device}" \
     directory="${filesystem_dir}" \
     fstype="${filesystem_type}" \
-    options="noatime,inode64,nobarrier,uquota,prjquota" \
+    options="noatime,inode64,uquota,prjquota" \
     $pcs_group_parameter
 
     pcs -f /root/${pcs_cfg} resource create ${service_name}  nfsserver \
     nfs_shared_infodir=${filesystem_dir}/nfsinfo nfs_no_notify=true \
     $pcs_group_parameter
 
-    pcs -f /root/${pcs_cfg} resource update nfs-daemon op stop timeout=50s
+    pcs -f /root/${pcs_cfg} resource update nfs-daemon op stop timeout=90s
+    pcs -f /root/${pcs_cfg} resource update nfs-daemon op monitor interval=20s timeout=40s
+
+    pcs -f /root/${pcs_cfg} resource update nfsshare op stop timeout=60s
+
+
 
 
     # We need to use  " --force" to allow the same root folder to be exported for multiple subnets using fsid=0
@@ -461,6 +468,7 @@ function configure_vip_move {
     echo "Waiting for node1 to finish configuring PCS. You can run pcs status to see the latest status"
     sleep 60s
   fi
+
 
 
 

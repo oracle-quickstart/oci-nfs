@@ -61,6 +61,8 @@ variable bastion_shape { default = "VM.Standard2.1" }
 variable bastion_ocpus { default = "1" }
 variable bastion_node_count { default = 1 }
 variable bastion_hostname_prefix { default = "bastion-" }
+# min 50GB, Recommend using at least 100 GB in production to ensure there is enough space for logs.
+variable bastion_boot_volume_size { default = "100" }
 
 
 # NFS Storage Server variables
@@ -69,6 +71,9 @@ variable persistent_storage_server_shape { default = "VM.Standard2.2" }
 variable storage_server_ocpus { default = "1" }
 variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
 variable storage_server_hostname_prefix { default = "nfs-server-" }
+# Recommend using 200-300 GB in production to ensure there is enough space for logs.
+variable storage_server_boot_volume_size { default = "300" }
+
 
 # Only applicable if you plan to deploy NFS with HA (fs_ha = true, fs_type="Persistent")
 # Floating Virtual IP which gets assigned to an active node in an active/passive HA cluster. NFS clients will use this IP to connect to NFS cluster. If you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers, then provide an unused private IP from the 'secondary subnet'. For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance. If you plan to use VM .x or BM.HPC2.36 compute shapes for NFS file servers, then provide an unused private IP from 'primary subnet' to be used to install NFS servers. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs.
@@ -146,7 +151,7 @@ variable instance_os {
 # Only latest supported OS version works. if I use 7.7, it doesn't return an image ocid.
 variable linux_os_version {
     description = "Operating system version for compute instances except NAT"
-    default = "7.8"
+    default = "7.9"
 }
 
 
@@ -231,7 +236,7 @@ variable volume_type_vpus_per_gb_mapping {
 variable mp_listing_id { default = "ocid1.appcataloglisting.oc1..aaaaaaaa26y5fkfvbjmspmuuhpoi6jptq3gc635a3gz72qujfsomvczh2miq" }
 variable mp_listing_resource_id { default = "ocid1.image.oc1..aaaaaaaabxwrflhsoaipmm4v7xvjfsmou42bp2fwpmuvyyug2sksfmroihta" }
 variable mp_listing_resource_version { default = "1.0" }
-variable use_marketplace_image { default = true }
+variable use_marketplace_image { default = false }
 
 # ------------------------------------------------------------------------------------------------------------
 

@@ -34,6 +34,7 @@ resource "oci_core_instance" "bastion" {
 
   source_details {
     source_id   = local.image_id
+    boot_volume_size_in_gbs = var.bastion_boot_volume_size
     source_type = "image"
   }
   create_vnic_details {
@@ -162,6 +163,7 @@ resource "oci_core_instance" "storage_server" {
 
   source_details {
     source_type = "image"
+    boot_volume_size_in_gbs = var.storage_server_boot_volume_size
     source_id   = local.image_id
   }
 

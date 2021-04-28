@@ -49,6 +49,9 @@
       owner: opc
       group: opc
       mode: 0600
+  - name: grow_xfs of boot volume
+    command: bash -c 'sudo /usr/libexec/oci-growfs -y | egrep "NOCHANGE:|CHANGED:"'
+
 
 - hosts: storage
   gather_facts: True

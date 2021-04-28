@@ -1,0 +1,17 @@
+/var/log/corosync/corosync.log /var/log/cluster/corosync.log {
+        daily
+        rotate 31
+        #hourly
+        #dateext
+        #dateformat -%Y%m%d_%H
+        #rotate 5208
+        minsize 2048
+        missingok
+        compress
+        delaycompress
+        copytruncate
+        notifempty
+        create 660 hacluster haclient
+}
+# To dry-run - /usr/sbin/logrotate -vd /etc/logrotate.conf
+# https://docs.rackspace.com/support/how-to/sample-logrotate-configuration-and-troubleshooting/

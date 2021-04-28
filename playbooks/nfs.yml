@@ -83,6 +83,23 @@
       src: _corosync.conf.j2
       dest: /home/opc/ha_config/corosync.conf
     when: fs_ha|bool
+  - name: create logrotate.d corosync file
+    template:
+      src: _logrotate.d_corosync.j2
+      dest: /etc/logrotate.d/corosync
+      force: true
+      backup: true
+      owner: root
+      group: root
+      mode: 0644
+    when: fs_ha|bool
+  - name: Restart service cron, in all cases, also issue daemon-reload to pick up config changes
+    systemd:
+      state: restarted
+      daemon_reload: yes
+      name: crond
+    when: fs_ha|bool
+
   - name: create ip_move.sh file
     template:
       src: _ip_move.sh.j2
