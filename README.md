@@ -45,11 +45,9 @@ Bare metal nodes comes with 2 physical NICs (2x25Gbps). To get best performance,
 
 
 ## Prerequisites
-### 1. Setup on local machine to run Terraform for OCI
-First off you'll need to do some pre deploy setup.  That's all detailed [here](https://github.com/oracle/oci-quickstart-prerequisites).
 
-### 2. OCI Dynamic Group and Policies for active/passive high availability NFS cluster
-The below two requirements are if you plan to deploy an active/passive high availability NFS cluster.  You must authorize instances to call services in Oracle Cloud Infrastructure.
+### 1. OCI Dynamic Group and Policies for active/passive high availability NFS cluster
+The below two requirements are only applicable if you plan to deploy an active/passive high availability NFS cluster.  You must authorize instances to call services in Oracle Cloud Infrastructure.
 
 
      1. Create a dynamic group of compute instances in your compartment (OCI console > Identity > Dynamic Groups).  For more documentation, refer to https://docs.cloud.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm.  Once instances are provisioned,  the dynamic group can be further restricted to only include the instance_id of the 2 NFS servers. 
@@ -69,7 +67,7 @@ The below two requirements are if you plan to deploy an active/passive high avai
 
 ```
 
-     3. If you plan to deploy in an **existing VCN & subnets**, then allow TCP & UDP traffic for the 2 private subnets (in case of Baremetal NFS server or in one private subnet (in case of NFS server using VMs). Add below rules to allow all TCP and UDP traffic within VCN CIDR range or for the 2 private subnets. 
+     2. If you plan to deploy in an **existing VCN & subnets**, then allow TCP & UDP traffic for the 2 private subnets (in case of Baremetal NFS server or in one private subnet (in case of NFS server using VMs). Add below rules to allow all TCP and UDP traffic within VCN CIDR range or for the 2 private subnets. 
 
 ```
         Ingress Rule: Stateless: No, Source: VCN_CIDR ,  IP Protocol: TCP ,  Leave other fields empty/default.  
@@ -78,6 +76,12 @@ The below two requirements are if you plan to deploy an active/passive high avai
 ```
 
 
+## Resource Manager Deployment
+This Quick Start uses [OCI Resource Manager](https://docs.cloud.oracle.com/iaas/Content/ResourceManager/Concepts/resourcemanager.htm) to make deployment easy, sign up for an [OCI account](https://cloud.or
+acle.com/en_US/tryit) if you don't have one, and just click the button below:
+
+[![Deploy to Oracle Cloud](https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg)](https://console.us-ashburn-1.oraclecloud.com/resourcemanager/stacks/create?reg
+ion=home&zipUrl=https://github.com/oracle-quickstart/oci-nfs/blob/master/orm/dist/nfs.zip)
 
 
 ## Marketplace Deployment 
@@ -86,7 +90,9 @@ If you prefer to use a GUI console to deploy, you can use the Markeplace listing
 ## Terraform Deployment
 If you prefer Terraform, then follow the below steps.  
 
-Now, you'll want a local copy of this repo.  You can make that with the commands:
+1. First off you'll need to do some pre deploy setup.  That's all detailed [here](https://github.com/oracle/oci-quickstart-prerequisites).
+
+2. Now, you'll want a local copy of this repo.  You can make that with the commands:
 
 ```
 git clone https://github.com/oracle-quickstart/oci-nfs.git
@@ -94,7 +100,7 @@ cd oci-nfs/
 ls
 ```
 
-## Customize the template 
+### Customize the template 
 Create a terraform.tfvars file and set values as per your needs.  We recommend to use terraform.tfvars to override values in variables.tf file.   
 
 ```
@@ -127,7 +133,7 @@ monitoring_server_shape="VM.Standard2.1"
 ```
 
 
-## Deployment and Post Deployment
+### Deployment and Post Deployment
 Deploy using standard Terraform commands
 
 ```
