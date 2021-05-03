@@ -12,11 +12,14 @@ server="$(hostname -s)"
 vnicip="${TARGET_VIP}"
 echo "Print: ${node1vnic} ${vnicip} ${node2vnic}  "
 # seems like OL7.8 requires the below or else OCI CLI commands fail. 
-version=`cat /etc/os-release | grep "^VERSION="  | grep "7.8" | gawk -F"\"" ' { print $2 } ' ` ; echo $version
+version=`cat /etc/os-release | grep "^VERSION=" | gawk -F"\"" ' { print $2 } ' ` ; echo $version
 if [ "$version" = "7.8" ]; then
   export LC_ALL=C.UTF-8
   export LANG=C.UTF-8
 fi
+# required for 7.9 also. So making it default, since we should run on old OS version
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
 ##### OCI/IPaddr Integration
 date
 if [ "${server}" = "${NODE1}" ]

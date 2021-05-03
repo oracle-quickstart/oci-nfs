@@ -14,12 +14,20 @@ locals {
   storage_server_filesystem_vnic_hostname_prefix = "${var.storage_server_hostname_prefix}fs-vnic-"
   filesystem_subnet_domain_name = "${data.oci_core_subnet.private_fs_subnet.dns_label}.${data.oci_core_vcn.nfs.dns_label}.oraclevcn.com"
 
-  is_bastion_flex_shape = var.bastion_shape == "VM.Standard.E3.Flex" ? [var.bastion_ocpus]:[]
-  is_quorum_server_flex_shape = var.quorum_server_shape == "VM.Standard.E3.Flex" ? [var.quorum_server_ocpus]:[]
-  is_storage_server_flex_shape = var.persistent_storage_server_shape == "VM.Standard.E3.Flex" ? [var.storage_server_ocpus]:[]
-  is_client_node_flex_shape = var.client_node_shape == "VM.Standard.E3.Flex" ? [var.client_node_ocpus]:[]
-  is_monitoring_server_flex_shape = var.monitoring_server_shape == "VM.Standard.E3.Flex" ? [var.monitoring_server_ocpus]:[]
 
+  #is_bastion_flex_shape = var.bastion_shape == "VM.Standard.E3.Flex" ? [var.bastion_ocpus]:[]
+  #is_quorum_server_flex_shape = var.quorum_server_shape == "VM.Standard.E3.Flex" ? [var.quorum_server_ocpus]:[]
+  #is_storage_server_flex_shape = var.persistent_storage_server_shape == "VM.Standard.E3.Flex" ? [var.storage_server_ocpus]:[]
+  #is_client_node_flex_shape = var.client_node_shape == "VM.Standard.E3.Flex" ? [var.client_node_ocpus]:[]
+  #is_monitoring_server_flex_shape = var.monitoring_server_shape == "VM.Standard.E3.Flex" ? [var.monitoring_server_ocpus]:[]
+  
+  
+  is_bastion_flex_shape = length(regexall(".*VM.*E[3-4].*Flex$", var.bastion_shape)) > 0 ? [var.bastion_ocpus]:[]
+  is_quorum_server_flex_shape = length(regexall(".*VM.*E[3-4].*Flex$", var.quorum_server_shape)) > 0 ? [var.quorum_server_ocpus]:[]
+  is_storage_server_flex_shape = length(regexall(".*VM.*E[3-4].*Flex$", var.persistent_storage_server_shape)) > 0 ? [var.storage_server_ocpus]:[]
+  is_client_node_flex_shape = length(regexall(".*VM.*E[3-4].*Flex$", var.client_node_shape)) > 0 ? [var.client_node_ocpus]:[]
+  is_monitoring_server_flex_shape = length(regexall(".*VM.*E[3-4].*Flex$", var.monitoring_server_shape)) > 0 ? [var.monitoring_server_ocpus]:[]
+  
   # If ad_number is non-negative use it for AD lookup, else use ad_name.
   # Allows for use of ad_number in TF deploys, and ad_name in ORM.
   # Use of max() prevents out of index lookup call.

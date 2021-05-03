@@ -44,6 +44,9 @@ resource "oci_core_instance" "monitoring_server" {
         ocpus = shape_config.value
       }
   }
+  agent_config {
+    is_management_disabled = true
+  }
 
   timeouts {
     create = "120m"

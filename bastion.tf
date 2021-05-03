@@ -31,6 +31,9 @@ resource "oci_core_instance" "bastion" {
         ocpus = shape_config.value
       }
   }
+  agent_config {
+    is_management_disabled = true
+  }
 
   source_details {
     source_id   = local.image_id
@@ -197,6 +200,9 @@ resource "oci_core_instance" "storage_server" {
         ocpus = shape_config.value
       }
   }
+  agent_config {
+    is_management_disabled = true
+  }
 
   timeouts {
     create = "120m"
@@ -248,6 +254,9 @@ resource "oci_core_instance" "client_node" {
       content {
         ocpus = shape_config.value
       }
+  }
+  agent_config {
+    is_management_disabled = true
   }
 
   timeouts {
@@ -302,6 +311,9 @@ resource "oci_core_instance" "quorum_server" {
       content {
         ocpus = shape_config.value
       }
+  }
+  agent_config {
+    is_management_disabled = true
   }
 
   timeouts {

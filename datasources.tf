@@ -57,4 +57,22 @@ data "oci_core_images" "InstanceImageOCID" {
       regex  = true
   }
 
+/*
+This is not working - trying to remove ampere Arm images.
+    filter {
+      name   = "display_name"
+      values = ["^((?!aarch).)*$"]
+      regex  = true
+  }
+*/
+
+    filter {
+      name   = "display_name"
+      values = ["Oracle-Linux-7.9-2021.04.09-0"]
+      regex  = false
+  }
+
+
+# Oracle-Linux-7.9-aarch64-2021.04.13-0 for Ampere Arm images.
+# Oracle-Linux-7.9-2021.04.09-0
 }

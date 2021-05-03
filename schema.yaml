@@ -165,15 +165,19 @@ variables:
     - "VM.Standard.E2.4"
     - "VM.Standard.E2.8"
     - "VM.Standard.E3.Flex"
+    - "VM.Standard.E4.Flex"
     - "VM.GPU3.1"
     - "VM.GPU3.2"
     - "VM.GPU3.4"
     - "BM.Standard2.52"
     - "BM.Standard.E2.64"
     - "BM.Standard.E3.128"
+    - "BM.Standard.E4.128"
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
     - "BM.GPU3.8"
+    - "VM.Optimized3.Flex"
+    - "BM.Optimized3.36"
     visible: true
 
   bastion_ocpus:
@@ -184,9 +188,14 @@ variables:
     maximum: 64
     default: 2
     visible:
-      eq:
-        - ${bastion_shape}
-        - "VM.Standard.E3.Flex"
+      and:
+        - or:
+          - eq:
+            - ${bastion_shape}
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - ${bastion_shape}
+            - "VM.Standard.E4.Flex"
     required: true
 
   bastion_node_count:
@@ -251,6 +260,10 @@ variables:
     - "BM.Standard.E2.64"
     - "VM.Standard.E3.Flex"
     - "BM.Standard.E3.128"
+    - "VM.Standard.E4.Flex"
+    - "BM.Standard.E4.128"
+    - "VM.Optimized3.Flex"
+    - "BM.Optimized3.36"
     visible:
       and:
         - eq:
@@ -265,9 +278,14 @@ variables:
     maximum: 64
     default: 2
     visible:
-      eq:
-        - ${persistent_storage_server_shape}
-        - "VM.Standard.E3.Flex"
+      and:
+        - or:
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E4.Flex"
     required: true
 
   storage_server_node_count:
@@ -363,15 +381,19 @@ variables:
     - "VM.Standard.E2.4"
     - "VM.Standard.E2.8"
     - "VM.Standard.E3.Flex"
+    - "VM.Standard.E4.Flex"
     - "VM.GPU3.1"
     - "VM.GPU3.2"
     - "VM.GPU3.4"
     - "BM.Standard2.52"
     - "BM.Standard.E2.64"
     - "BM.Standard.E3.128"
+    - "BM.Standard.E4.128"
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
     - "BM.GPU3.8"
+    - "VM.Optimized3.Flex"
+    - "BM.Optimized3.36"
 
   client_node_ocpus:
     title: Cores
@@ -381,9 +403,14 @@ variables:
     maximum: 64
     default: 2
     visible:
-      eq:
-        - ${client_node_shape}
-        - "VM.Standard.E3.Flex"
+      and:
+        - or:
+          - eq:
+            - ${client_node_shape}
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - ${client_node_shape}
+            - "VM.Standard.E4.Flex"
     required: true
 
   client_node_count:
@@ -567,15 +594,20 @@ variables:
     - "VM.Standard.E2.4"
     - "VM.Standard.E2.8"
     - "VM.Standard.E3.Flex"
+    - "VM.Standard.E4.Flex"
     - "VM.GPU3.1"
     - "VM.GPU3.2"
     - "VM.GPU3.4"
     - "BM.Standard2.52"
     - "BM.Standard.E2.64"
     - "BM.Standard.E3.128"
+    - "BM.Standard.E4.128"
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
     - "BM.GPU3.8"
+    - "BM.GPU4.8"
+    - "VM.Optimized3.Flex"
+    - "BM.Optimized3.36"
 
   quorum_server_ocpus:
     title: Cores
@@ -585,9 +617,14 @@ variables:
     maximum: 64
     default: 2
     visible:
-      eq:
-        - ${quorum_server_shape}
-        - "VM.Standard.E3.Flex"
+      and:
+        - or:
+          - eq:
+            - ${quorum_server_shape}
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - ${quorum_server_shape}
+            - "VM.Standard.E4.Flex"
     required: true
 
   quorum_server_hostname:
@@ -666,16 +703,20 @@ variables:
     - "VM.Standard.E2.4"
     - "VM.Standard.E2.8"
     - "VM.Standard.E3.Flex"
+    - "VM.Standard.E4.Flex"
     - "VM.GPU3.1"
     - "VM.GPU3.2"
     - "VM.GPU3.4"
     - "BM.Standard2.52"
     - "BM.Standard.E2.64"
     - "BM.Standard.E3.128"
+    - "BM.Standard.E4.128"
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
     - "BM.GPU3.8"
     - "BM.GPU4.8"
+    - "VM.Optimized3.Flex"
+    - "BM.Optimized3.36"
 
   monitoring_server_ocpus:
     title: Cores
@@ -685,9 +726,14 @@ variables:
     maximum: 64
     default: 2
     visible:
-      eq:
-        - ${monitoring_server_shape}
-        - "VM.Standard.E3.Flex"
+      and:
+        - or:
+          - eq:
+            - ${monitoring_server_shape}
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - ${monitoring_server_shape}
+            - "VM.Standard.E4.Flex"
     required: true
 
   monitoring_server_hostname:

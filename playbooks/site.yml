@@ -8,7 +8,9 @@
         - '!all'
         - '!any'
         - 'network'
-  tasks: 
+  tasks:
+  - include_role:
+      name: oci-cloud-agent
   - name: stop firewalld
     service: 
       name: firewalld

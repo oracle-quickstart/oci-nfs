@@ -13,8 +13,19 @@ sudo cloud-init status --wait
 #
 # Install ansible and other required packages
 #
-sudo yum makecache
-sudo yum install -y ansible python-netaddr
+source /etc/os-release
+
+if [ $ID == "ol" ] ; then
+  repo="ol7_developer_EPEL"
+else
+  repo="epel"
+fi
+
+
+# Install ansible and other required packages
+
+sudo yum makecache --enablerepo=$repo
+sudo yum install --enablerepo=$repo -y ansible python-netaddr
 
 #
 # A little waiter function to make sure all the nodes are up before we start configure 
