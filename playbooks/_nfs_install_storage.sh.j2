@@ -16,7 +16,7 @@ make_filesystem()
     mount_point="/mnt/nfsshare"
     mkdir -p ${mount_point}
     # Temporary mount to create directories needed by ocf::heartbeat:exportfs
-    mount -t xfs -o noatime,inode64,nobarrier,uquota,prjquota /dev/${vg_nfs_name}/${disk_name} ${mount_point}
+    mount -t xfs -o noatime,inode64,uquota,prjquota /dev/${vg_nfs_name}/${disk_name} ${mount_point}
     df -h
     mkdir -p ${mount_point}/exports
     if [ "{{ fs_ha }}" = "true" ]; then
@@ -27,7 +27,7 @@ make_filesystem()
       # https://askubuntu.com/questions/9939/what-do-the-last-two-fields-in-fstab-mean
       # https://docs.cloud.oracle.com/en-us/iaas/Content/Block/References/fstaboptions.htm
       echo "Keep the disk mounted."
-      echo "/dev/${vg_nfs_name}/${disk_name}  ${mount_point}   xfs     defaults,_netdev,nofail,noatime,inode64,nobarrier,uquota,prjquota        0 2" >> /etc/fstab
+      echo "/dev/${vg_nfs_name}/${disk_name}  ${mount_point}   xfs     defaults,_netdev,nofail,noatime,inode64,uquota,prjquota        0 2" >> /etc/fstab
     fi
 }
 
