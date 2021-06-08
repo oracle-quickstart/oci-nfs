@@ -1,0 +1,45 @@
+totem {
+    version: 2
+    cluster_name: nfs_cluster
+    transport: udpu
+    token: 6000
+    consensus: 7200
+    # join: 160
+    # token_retransmits_before_loss_const: 20
+    rrp_mode: passive
+}
+nodelist {
+    node {
+        ring0_addr: NODE1_IP
+        ring1_addr: NODE1_VNIC2_IP
+        name: NODE1
+        nodeid: 1
+    }
+
+    node {
+        ring0_addr: NODE2_IP
+        ring1_addr: NODE2_VNIC2_IP
+        name: NODE2
+        nodeid: 2
+    }
+}
+
+quorum {
+    provider: corosync_votequorum
+    two_node: 1
+}
+
+logging {
+    to_logfile: yes
+    logfile: /var/log/corosync/corosync.log
+    timestamp: on
+    to_syslog: yes
+    # Log debug messages (very verbose). When in doubt, leave off. To turn on debug: on
+    debug: off
+}
+
+# https://www.thegeekdiary.com/how-to-change-pacemaker-cluster-heartbeat-timeout-in-centos-rhel-7/
+# pcs cluster sync
+# pcs cluster reload corosync
+# corosync-cmapctl | egrep -i "consensus|token|retrans|join"
+

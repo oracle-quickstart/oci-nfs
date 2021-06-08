@@ -78,11 +78,16 @@
       src: _corosync.j2
       dest: /home/opc/ha_config/corosync
     when: fs_ha|bool
-  - name: create corosync.conf file
+#  - name: create corosync.conf with 2 rings
+#    template:
+#      src: _corosync.conf.2ring.j2
+#      dest: /home/opc/ha_config/corosync.conf
+#    when: (fs_ha|bool and {{ standard_storage_node_dual_nics }})|default(false)|bool
+  - name: create corosync.conf with 1 ring
     template:
-      src: _corosync.conf.j2
+      src: _corosync.conf.1ring.j2
       dest: /home/opc/ha_config/corosync.conf
-    when: fs_ha|bool
+#    when: (fs_ha|bool and (not {{ standard_storage_node_dual_nics }}))|default(false)|bool
   - name: create logrotate.d corosync file
     template:
       src: _logrotate.d_corosync.j2

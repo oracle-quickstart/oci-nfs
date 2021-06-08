@@ -119,7 +119,14 @@ function configure_vip_move {
   TARGET_VIP={{ nfs_server_ip }}
 
   QUORUM_NODE="{{ quorum_server_hostname }}"
-
+  
+  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    NODE1_VNIC2_HOSTNAME="{{ storage_server_filesystem_vnic_hostname_prefix }}1" ;
+    NODE2_VNIC2_HOSTNAME="{{ storage_server_filesystem_vnic_hostname_prefix }}2" ;
+    NODE1_VNIC2_IP=`nslookup $NODE1_VNIC2_HOSTNAME | grep "Address: " | grep -v "#" | gawk '{print $2}'` ;
+    NODE2_VNIC2_IP=`nslookup $NODE2_VNIC2_HOSTNAME | grep "Address: " | grep -v "#" | gawk '{print $2}'` ;
+  fi
+  
 
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
     if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
@@ -191,8 +198,16 @@ function configure_vip_move {
   node2vnic=\"${node2vnic}\"
   QUORUM_NODE=\"${QUORUM_NODE}\"
   " > /root/env_variables.sh
-  echo "source /root/env_variables.sh" >>  /root/.bash_profile
 
+  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    echo "
+    NODE1_VNIC2_HOSTNAME=\"${NODE1_VNIC2_HOSTNAME}\"
+    NODE2_VNIC2_HOSTNAME=\"${NODE2_VNIC2_HOSTNAME}\"
+    NODE1_VNIC2_IP=\"${NODE1_VNIC2_IP}\"
+    NODE2_VNIC2_IP=\"${NODE2_VNIC2_IP}\"
+    " >> /root/env_variables.sh
+  fi
+  echo "source /root/env_variables.sh" >>  /root/.bash_profile
 
 
   # Set password for hacluster user on both nodes
@@ -225,9 +240,25 @@ function configure_vip_move {
   cp ${ha_config_dir}/corosync.conf /etc/corosync/
   chown root: /etc/corosync/corosync.conf
   sed -i "s/LOCAL_NODE_IP/${LOCAL_NODE_IP}/" /etc/corosync/corosync.conf
-  sed -i "s/NODE1/${NODE1}/" /etc/corosync/corosync.conf
-  sed -i "s/NODE2/${NODE2}/" /etc/corosync/corosync.conf
 
+  # Look for entire line and replace, so it does not replace other string whcih has substring  NODE1_xxxx
+  #sed -i "s/name: NODE1/name: ${NODE1}/" /etc/corosync/corosync.conf
+  #sed -i "s/name: NODE2/name: ${NODE2}/" /etc/corosync/corosync.conf
+
+
+  sed -i "s/NODE1_IP/${NODE1_IP}/" /etc/corosync/corosync.conf
+  sed -i "s/NODE2_IP/${NODE2_IP}/" /etc/corosync/corosync.conf
+  
+  sed -i "s/NODE1_VNIC2_IP/${NODE1_VNIC2_IP}/" /etc/corosync/corosync.conf
+  sed -i "s/NODE2_VNIC2_IP/${NODE2_VNIC2_IP}/" /etc/corosync/corosync.conf
+      
+  sed -i "s/QUORUM_NODE/${QUORUM_NODE}/" /etc/corosync/corosync.conf
+
+  # Only if it ends in NODE1 or NODE2
+  sed -i "s/NODE1$/${NODE1}/" /etc/corosync/corosync.conf
+  sed -i "s/NODE2$/${NODE2}/" /etc/corosync/corosync.conf
+
+    
   mkdir /etc/corosync/service.d/
   cp -f ${ha_config_dir}/pcmk /etc/corosync/service.d/pcmk
   chown root: /etc/corosync/service.d/pcmk

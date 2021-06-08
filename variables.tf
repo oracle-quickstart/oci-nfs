@@ -16,7 +16,7 @@ variable fs_type {
 
 # Deploy file system with high availability (2 node file server in active/passive mode) or single node file server.
 variable fs_ha {
-  default = "true"
+  default = "false"
 }
 
 
