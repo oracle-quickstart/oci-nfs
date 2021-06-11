@@ -6,9 +6,9 @@ resource "random_pet" "name" {
 locals {
 
   cluster_name = var.use_custom_name ? var.cluster_name : random_pet.name.id
-  storage_server_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? true : false)
   storage_server_hpc_shape = (length(regexall("HPC2", local.derived_storage_server_shape)) > 0 ? true : false)
-  standard_storage_node_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? (length(regexall("Standard",local.derived_storage_server_shape)) > 0 ? true : false) : false)
+  storage_server_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? (local.storage_server_hpc_shape ? false : true) : false)
+  #standard_storage_node_dual_nics = (length(regexall("^BM", local.derived_storage_server_shape)) > 0 ? (length(regexall("Standard",local.derived_storage_server_shape)) > 0 ? true : false) : false)
   storage_subnet_domain_name = "${data.oci_core_subnet.private_storage_subnet.dns_label}.${data.oci_core_vcn.nfs.dns_label}.oraclevcn.com"
   vcn_domain_name = "${data.oci_core_vcn.nfs.dns_label}.oraclevcn.com"
   storage_server_filesystem_vnic_hostname_prefix = "${var.storage_server_hostname_prefix}fs-vnic-"

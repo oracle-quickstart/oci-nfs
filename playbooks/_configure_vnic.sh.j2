@@ -45,15 +45,16 @@ EOF
 }
 
 # start of script
-if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+if [ "{{ storage_server_dual_nics }}" = "true" ]; then
   configure_vnics
 else
   # single nic/vnic only.
   echo "server is a single NIC node or HPC node"
 fi
 
+# TODO:  We are not doing anything,  we should remove after evaluating why it was added initially.
 if [ "{{ fs_ha }}" = "true" ]; then
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     vnicId=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].vnicId' | sed 's/"//g' ` ; echo $vnicId
     nfs_server_ip="{{ nfs_server_ip }}"
     #/root/secondary_vnic_all_configure.sh -c -e $nfs_server_ip $vnicId

@@ -34,7 +34,7 @@ function configure_nfs_server {
   exportfs_client_spec_2="${exportfs_client_spec_2_network}/${exportfs_client_spec_2_netmask}"
 
 
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
     exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
     exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
@@ -46,7 +46,7 @@ function configure_nfs_server {
 
   # /mnt/nfsshare/exports   172.28.16.0/255.255.240.0(rw,sync,wdelay,hide,nocrossmnt,secure,no_root_squash,no_all_squash,no_subtree_check,insecure_locks,acl,no_pnfs,fsid=0,anonuid=65534,anongid=65534,sec=sys,rw,secure,no_root_squash,no_all_squash)
 
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     echo "${nfs_root_dir} ${exportfs_client_spec_3}(${options})" >> /etc/exports
   fi
 
@@ -120,7 +120,7 @@ function configure_vip_move {
 
   QUORUM_NODE="{{ quorum_server_hostname }}"
   
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     NODE1_VNIC2_HOSTNAME="{{ storage_server_filesystem_vnic_hostname_prefix }}1" ;
     NODE2_VNIC2_HOSTNAME="{{ storage_server_filesystem_vnic_hostname_prefix }}2" ;
     NODE1_VNIC2_IP=`nslookup $NODE1_VNIC2_HOSTNAME | grep "Address: " | grep -v "#" | gawk '{print $2}'` ;
@@ -129,7 +129,7 @@ function configure_vip_move {
   
 
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
-    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    if [ "{{ storage_server_dual_nics }}" = "true" ]; then
       node1vnic=`curl -s $MDATA_VNIC_URL | jq '.[1].vnicId' | sed 's/"//g' ` ;
     else
       node1vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
@@ -143,7 +143,7 @@ function configure_vip_move {
       ssh ${SSH_OPTIONS}  opc@${NODE2_IP} "ls -l /home/opc/.ssh/id_rsa"
     done
 
-    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    if [ "{{ storage_server_dual_nics }}" = "true" ]; then
       node2vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE2_IP} "curl -s $MDATA_VNIC_URL | jq '.[1].vnicId'  "` ;
     else
       node2vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE2_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
@@ -151,7 +151,7 @@ function configure_vip_move {
     node2vnic=`echo $node2vnic_w_quotes |  sed 's/"//g' ` ;
   else
     # SWAP logic, since its node2 here.
-    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    if [ "{{ storage_server_dual_nics }}" = "true" ]; then
       node2vnic=`curl -s $MDATA_VNIC_URL | jq '.[1].vnicId' | sed 's/"//g' ` ;
     else
       node2vnic=`curl -s $MDATA_VNIC_URL | jq '.[0].vnicId' | sed 's/"//g' ` ;
@@ -166,7 +166,7 @@ function configure_vip_move {
       ssh ${SSH_OPTIONS}  opc@${NODE1_IP} "ls -l /home/opc/.ssh/id_rsa"
     done
 
-    if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+    if [ "{{ storage_server_dual_nics }}" = "true" ]; then
       node1vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE1_IP} "curl -s $MDATA_VNIC_URL | jq '.[1].vnicId'  "` ;
     else
       node1vnic_w_quotes=`ssh ${SSH_OPTIONS} opc@${NODE1_IP} "curl -s $MDATA_VNIC_URL | jq '.[0].vnicId'  "` ;
@@ -175,7 +175,7 @@ function configure_vip_move {
   fi
 
 
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[1].subnetCidrBlock  ' | sed 's/"//g' ` ;
   else
     subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[0].subnetCidrBlock  ' | sed 's/"//g' ` ;
@@ -199,7 +199,7 @@ function configure_vip_move {
   QUORUM_NODE=\"${QUORUM_NODE}\"
   " > /root/env_variables.sh
 
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     echo "
     NODE1_VNIC2_HOSTNAME=\"${NODE1_VNIC2_HOSTNAME}\"
     NODE2_VNIC2_HOSTNAME=\"${NODE2_VNIC2_HOSTNAME}\"
@@ -323,7 +323,14 @@ function configure_vip_move {
   # Start - Stonith SBD fencing config
   if [ "$LOCAL_NODE" = "$NODE1" ]; then
 
-    sbd -d /dev/oracleoci/oraclevdb create
+    timeout_watchdog=20
+    timeout_msgwait=$(( 2 * $timeout_watchdog))
+    warn_threshold_watchdog_timeout=$(( $timeout_watchdog - 3 ))
+    echo  $timeout_watchdog $timeout_msgwait $warn_threshold_watchdog_timeout
+
+    sbd -d /dev/oracleoci/oraclevdb -4 $timeout_msgwait -1 $timeout_watchdog -5 $warn_threshold_watchdog_timeout  create
+
+    #sbd -d /dev/oracleoci/oraclevdb create
     # I should see the below info
     sbd -d /dev/oracleoci/oraclevdb dump
 
@@ -332,10 +339,10 @@ function configure_vip_move {
     ##UUID               : d484107e-3491-4a1d-b1ce-ea0a2ee2b649
     ##Number of slots    : 255
     ##Sector size        : 512
-    ##Timeout (watchdog) : 5
+    ##Timeout (watchdog) : 20
     ##Timeout (allocate) : 2
     ##Timeout (loop)     : 1
-    ##Timeout (msgwait)  : 10
+    ##Timeout (msgwait)  : 40
     ##==Header on disk /dev/oracleoci/oraclevdb is dumped
 
   fi
@@ -390,9 +397,7 @@ function configure_vip_move {
     echo "ending quorum changes."
     # end
 
-    #pcs -f /root/${pcs_cfg} property set stonith-enabled=false
     pcs -f /root/${pcs_cfg} property set stonith-enabled=true
-    pcs -f /root/${pcs_cfg} property set stonith-watchdog-timeout=10
     # In 2 nodes, there is no quorum. hence no-quorum-policy=ignore  instead of no-quorum-policy=stop
     # With 3rd Quorum node - set no-quorum-policy=stop
     pcs -f /root/${pcs_cfg} property set no-quorum-policy=stop
@@ -408,9 +413,11 @@ function configure_vip_move {
     # default timeout in PCS is 20s, sometimes it takes more than 20s for stonith monitor calls, hence make it 50s.
     # default Stonith monitor interval=60s
     # sudo pcs stonith show --full
-    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0 op monitor timeout=50s
+    # Set it to be "timeout_msgwait + 5" seconds. eg: 40+5=45
+    power_timeout=$(( $timeout_msgwait + 5 ))
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE1  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE1 pcmk_delay_base=0 power_timeout=$power_timeout op monitor timeout=50s
     # A 5 seconds delay was added to NODE2 to ensure there is no race condition - fence-race.
-    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5  op monitor timeout=50s
+    pcs -f /root/${pcs_cfg} stonith create sbd_fencing_$NODE2  fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list=$NODE2 pcmk_delay_base=5 power_timeout=$power_timeout op monitor timeout=50s
 
     pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE1 avoids $NODE1
     pcs -f /root/${pcs_cfg} constraint location sbd_fencing_$NODE2 avoids $NODE2

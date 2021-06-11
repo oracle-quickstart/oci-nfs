@@ -60,6 +60,15 @@
     command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/configure_vnic.sh"
   - name: update lvm.conf
     command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
+    
+  - name: disable auto_activation_volume in lvm.conf
+    lineinfile:
+      path: /etc/lvm/lvm.conf
+      insertbefore: '# Configuration option activation/read_only_volume_list'
+      line: 'auto_activation_volume_list = []'
+      state: present
+      create: no
+      
   - name: create nfs_install_storage.sh file
     template:
       src: _nfs_install_storage.sh.j2
@@ -82,12 +91,12 @@
 #    template:
 #      src: _corosync.conf.2ring.j2
 #      dest: /home/opc/ha_config/corosync.conf
-#    when: (fs_ha|bool and {{ standard_storage_node_dual_nics }})|default(false)|bool
+#    when: (fs_ha|bool and {{ storage_server_dual_nics }})|default(false)|bool
   - name: create corosync.conf with 1 ring
     template:
       src: _corosync.conf.1ring.j2
       dest: /home/opc/ha_config/corosync.conf
-#    when: (fs_ha|bool and (not {{ standard_storage_node_dual_nics }}))|default(false)|bool
+#    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
   - name: create logrotate.d corosync file
     template:
       src: _logrotate.d_corosync.j2
@@ -128,6 +137,18 @@
   - name: execute install_ha_rpms.sh
     command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_ha_rpms.sh"
     when: fs_ha|bool
+
+  # only for VMs - since they come up too quickly before stonith fencing completes.
+  - name: add 30s delay for VM instances for corosync service
+    lineinfile:
+      path: /usr/lib/systemd/system/corosync.service
+      #regexp: 'ExecStart=/usr/share/corosync/corosync start'
+      insertbefore: 'ExecStart=/usr/share/corosync/corosync start'
+      line: 'ExecStartPre=/bin/sleep 30'
+      state: present
+      create: no
+    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
+
   - name: create install_ha_config.sh file
     template:
       src: _install_ha_config.sh.j2

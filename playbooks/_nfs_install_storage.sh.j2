@@ -99,7 +99,7 @@ find_block_volumes()
 
 configure_disks()
 {
-  if [ "{{ fs_ha }}" = "true" ]; then
+  if [ "{{ fs_type }}" = "Persistent" ]; then
 
     find_block_volumes
     # call function
@@ -181,7 +181,7 @@ else
   exportfs_client_spec_1="${exportfs_client_spec_1_network}/${exportfs_client_spec_1_netmask}"
   exportfs_client_spec_2="${exportfs_client_spec_2_network}/${exportfs_client_spec_2_netmask}"
 
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     exportfs_client_spec_3_cidr_block="{{ private_fs_subnet_cidr_block }}"
     exportfs_client_spec_3_netmask=`ipcalc -m  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
     exportfs_client_spec_3_network=`ipcalc -n  $exportfs_client_spec_3_cidr_block | gawk -F "=" '{ print $2}'`
@@ -195,7 +195,7 @@ else
 # it uses fsid values.  If fsid are used, then the client using NFSv4, need to use / to mount fsid=0 root and not /mnt/nfsshare/exports. Client code is currently using format: /mnt/nfsshare/exports also for NFSv4 for HA and non-HA.
 #  echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options},fsid=0) ${exportfs_client_spec_2}(${options},fsid=0) ${exportfs_client_spec_3}(${options},fsid=0) " >> /etc/exports
 
-  if [ "{{ standard_storage_node_dual_nics }}" = "true" ]; then
+  if [ "{{ storage_server_dual_nics }}" = "true" ]; then
     echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options}) ${exportfs_client_spec_2}(${options}) ${exportfs_client_spec_3}(${options}) " >> /etc/exports
   else
     echo "${nfs_root_dir} ${exportfs_client_spec_1}(${options}) ${exportfs_client_spec_2}(${options}) " >> /etc/exports

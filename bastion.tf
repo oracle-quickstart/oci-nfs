@@ -83,7 +83,7 @@ resource "oci_core_instance" "bastion" {
       nfs_server_ip = local.nfs_server_ip,
       storage_server_filesystem_vnic_hostname_prefix = local.storage_server_filesystem_vnic_hostname_prefix,
       filesystem_subnet_domain_name = local.filesystem_subnet_domain_name,
-      standard_storage_node_dual_nics = local.standard_storage_node_dual_nics,
+      storage_server_dual_nics = local.storage_server_dual_nics,
       private_fs_subnet_cidr_block = data.oci_core_subnet.private_fs_subnet.cidr_block,
       quorum_server_hostname = var.quorum_server_hostname,
       install_monitor_agent = local.install_monitor_agent,

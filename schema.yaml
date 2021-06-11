@@ -176,6 +176,7 @@ variables:
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
     - "BM.GPU3.8"
+    - "BM.GPU4.8"
     - "VM.Optimized3.Flex"
     - "BM.Optimized3.36"
     visible: true
@@ -233,6 +234,7 @@ variables:
     - "VM.DenseIO2.24"
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
+    - "BM.Optimized3.36"
     visible:
       and:
         - eq:
@@ -264,6 +266,7 @@ variables:
     - "BM.Standard.E4.128"
     - "VM.Optimized3.Flex"
     - "BM.Optimized3.36"
+    - "BM.HPC2.36"
     visible:
       and:
         - eq:
@@ -392,6 +395,7 @@ variables:
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
     - "BM.GPU3.8"
+    - "BM.GPU4.8"
     - "VM.Optimized3.Flex"
     - "BM.Optimized3.36"
 
