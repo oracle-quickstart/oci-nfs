@@ -78,7 +78,7 @@ resource "oci_core_volume" "stonith_fencing_blockvolume" {
   display_name        = "${local.cluster_name}_nfs-stonith-fencing-sbd"
   size_in_gbs         = "50"
   #  Lower cost Block volume
-  vpus_per_gb         = "0"
+  vpus_per_gb         = "10"
 }
 
 
