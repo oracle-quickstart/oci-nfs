@@ -121,7 +121,7 @@ variable "ad_number" {
 
 variable storage_tier_1_disk_perf_tier {
   default = "Higher Performance"
-  description = "Select block volume storage performance tier based on your performance needs. Valid values are Higher Performance, Balanced, Lower Cost"
+  description = "Select block volume storage performance tier based on your performance needs. Refer to variable volume_type_vpus_per_gb_mapping for valid values, eg: Higher Performance, Balanced, Lower Cost, Ultra High Performance - 120VPUs, Ultra High Performance - 30VPUs, etc..."
 }
 
 variable storage_tier_1_disk_count {
@@ -219,6 +219,16 @@ variable volume_attach_device_mapping {
 variable volume_type_vpus_per_gb_mapping {
   type = map(string)
   default = {
+    "Ultra High Performance - 120VPUs" = "120"
+    "Ultra High Performance - 110VPUs" = "110"
+    "Ultra High Performance - 100VPUs" = "100"
+    "Ultra High Performance - 90VPUs" = "90"
+    "Ultra High Performance - 80VPUs" = "80"
+    "Ultra High Performance - 70VPUs" = "70"
+    "Ultra High Performance - 60VPUs" = "60"
+    "Ultra High Performance - 50VPUs" = "50"
+    "Ultra High Performance - 40VPUs" = "40"
+    "Ultra High Performance - 30VPUs" = "30"
     "Higher Performance" = "20"
     "Balanced" = "10"
     "Lower Cost" = "0"

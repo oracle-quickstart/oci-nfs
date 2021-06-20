@@ -319,6 +319,16 @@ variables:
     description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
     type: enum
     enum:
+    - "Ultra High Performance - 120VPUs"
+    - "Ultra High Performance - 110VPUs"
+    - "Ultra High Performance - 100VPUs"
+    - "Ultra High Performance - 90VPUs"
+    - "Ultra High Performance - 80VPUs"
+    - "Ultra High Performance - 70VPUs"
+    - "Ultra High Performance - 60VPUs"
+    - "Ultra High Performance - 50VPUs"
+    - "Ultra High Performance - 40VPUs"
+    - "Ultra High Performance - 30VPUs"
     - "Higher Performance"
     - "Balanced"
     - "Lower Cost"
