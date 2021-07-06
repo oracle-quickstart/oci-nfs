@@ -68,7 +68,9 @@ variable bastion_boot_volume_size { default = "100" }
 # NFS Storage Server variables
 variable persistent_storage_server_shape { default = "VM.Standard2.2" }
 # Number of OCPU's for flex shape
-variable storage_server_ocpus { default = "1" }
+variable storage_server_ocpus { default = "2" }
+variable storage_server_memory { default = 16 }
+variable storage_server_custom_memory { default = false }
 variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
 variable storage_server_hostname_prefix { default = "nfs-server-" }
 # Recommend using 200-300 GB in production to ensure there is enough space for logs.

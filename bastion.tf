@@ -177,7 +177,7 @@ resource "oci_core_instance" "storage_server" {
   }
 
   launch_options {
-    network_type = (length(regexall("VM.Standard.E", local.derived_storage_server_shape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
+    network_type = local.server_network_type
   }
 
   metadata = {
@@ -198,6 +198,7 @@ resource "oci_core_instance" "storage_server" {
     for_each = local.is_storage_server_flex_shape
       content {
         ocpus = shape_config.value
+        memory_in_gbs = var.storage_server_custom_memory ? var.storage_server_memory : 16 * shape_config.value
       }
   }
   agent_config {
@@ -232,7 +233,7 @@ resource "oci_core_instance" "client_node" {
   }
 
   launch_options {
-    network_type = (length(regexall("VM.Standard.E", var.client_node_shape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
+    network_type = local.client_network_type
   }
 
   metadata = {
@@ -287,10 +288,11 @@ resource "oci_core_instance" "quorum_server" {
     assign_public_ip    = "false"
   }
 
-
+  /* - Optional
   launch_options {
     network_type = (length(regexall("VM.Standard.E", var.quorum_server_shape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
   }
+  */
 
   metadata = {
     ssh_authorized_keys = join(

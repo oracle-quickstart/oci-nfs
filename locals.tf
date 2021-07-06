@@ -47,7 +47,9 @@ locals {
   client_subnet_id    = local.fs_subnet_id
   derived_storage_server_shape = (length(regexall("^Scratch", var.fs_type)) > 0 ? var.scratch_storage_server_shape : var.persistent_storage_server_shape)
   derived_storage_server_node_count = (var.fs_ha ? 2 : 1)
-  derived_storage_server_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : var.storage_tier_1_disk_count)
+  
+  uhp_disk_perf_tier=(length(regexall("Ultra High Performance",var.storage_tier_1_disk_perf_tier)) > 0 ? true : false)
+  derived_storage_server_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : (local.uhp_disk_perf_tier ? 1 : var.storage_tier_1_disk_count))
 
   nfs = (length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
   nfs_server_ip = (var.fs_ha ? (var.ha_vip_private_ip) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )
@@ -55,5 +57,11 @@ locals {
   # Grafana monitoring
   install_monitor_agent=((var.create_monitoring_server) ? true : false )
 
+  # https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/edit-launch-options.htm
+  server_network_type = ( ( (length(regexall("VM.Standard.E2", local.derived_storage_server_shape)) > 0) || (length(regexall("VM.Standard.A1.Flex", local.derived_storage_server_shape)) > 0) ) ? "PARAVIRTUALIZED" : "VFIO")
+
+  client_network_type = ( ( (length(regexall("VM.Standard.E2", var.client_node_shape)) > 0) || (length(regexall("VM.Standard.A1.Flex", var.client_node_shape)) > 0) ) ? "PARAVIRTUALIZED" : "VFIO")
+
 }
+
 

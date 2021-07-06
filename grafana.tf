@@ -19,10 +19,11 @@ resource "oci_core_instance" "monitoring_server" {
     assign_public_ip    = "false"
   }
 
-
+  /* - Optional
   launch_options {
     network_type = (length(regexall("VM.Standard.E", var.monitoring_server_shape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
   }
+  */
 
   metadata = {
     ssh_authorized_keys = join(

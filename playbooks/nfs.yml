@@ -96,6 +96,7 @@
     template:
       src: _corosync.conf.1ring.j2
       dest: /home/opc/ha_config/corosync.conf
+    when: fs_ha|bool
 #    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
   - name: create logrotate.d corosync file
     template:
@@ -149,6 +150,13 @@
       create: no
     when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
 
+#  - name: create tuning.sh file
+#    template:
+#      src: _tuning.sh.j2
+#      dest: /home/opc/tuning.sh
+#  - name: execute tuning.sh
+#    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning.sh"
+
   - name: create install_ha_config.sh file
     template:
       src: _install_ha_config.sh.j2
@@ -195,6 +203,14 @@
     wait_for:
       timeout: 60
     delegate_to: localhost
+
+#  - name: create tuning_client.sh file
+#    template:
+#      src: _tuning_client.sh.j2
+#      dest: /home/opc/tuning_client.sh
+#  - name: execute tuning_client.sh
+#    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning_client.sh"
+
   - name: create nfs mount_point directory
     become: true
     file:

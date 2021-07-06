@@ -64,6 +64,8 @@ groupings:
     - scratch_storage_server_shape
     - persistent_storage_server_shape
     - storage_server_ocpus
+    - storage_server_custom_memory
+    - storage_server_memory
     - storage_server_node_count
     - storage_server_hostname_prefix
     - storage_server_boot_volume_size
@@ -291,6 +293,42 @@ variables:
             - "VM.Standard.E4.Flex"
     required: true
 
+
+  storage_server_custom_memory:
+    title: Use custom memory size
+    type: boolean
+    default: false
+    visible:
+      and:
+        - or:
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E4.Flex"
+    
+  storage_server_memory:
+    title: Memory in GBS
+    type: integer
+    description: Number of memory for flex shape. Minimum 1GB per core.
+    minimum: 1
+    maximum: 1024
+    default: 16
+    visible:
+      and:
+        - or:
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E4.Flex"
+        - and:
+            - ${storage_server_custom_memory}
+    required: true
+
+
   storage_server_node_count:
     title: "Number of storage servers"
     description: "Number of storage server instances."
@@ -348,9 +386,22 @@ variables:
     maximum: 32
     required: true
     visible:
-      - eq:
-        - ${fs_type}
-        - "Persistent"
+      and:
+        - or:
+          - eq:
+            - ${storage_tier_1_disk_perf_tier}
+            - "Higher Performance"
+          - eq:
+            - ${storage_tier_1_disk_perf_tier}
+            - "Balanced"
+          - eq:
+            - ${storage_tier_1_disk_perf_tier}
+            - "Lower Cost"
+        - and:
+          - eq:
+            - ${fs_type}
+            - "Persistent"
+
 
   storage_tier_1_disk_size:
     title: "Block volume size"
