@@ -93,6 +93,18 @@ fi
 done
 
 
+intel_node=false
+amd_node=false
+lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
+if [ $? -eq 0 ];  then
+  intel_node=false
+  amd_node=true
+else
+  intel_node=true
+  amd_node=false
+fi
+
+
 
 cd /sys/class/net/
 interface_lst=`ls | egrep -v "^lo$|docker" `
@@ -108,13 +120,13 @@ do
     ethtool -g $interface
     ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191
     ethtool -g $interface
-    echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
+    echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" | sudo tee -a  /etc/rc.local
   
     ethtool -l $interface
-    max_combined=`ethtool -l  $interface | grep -A4 "Pre-set maximums" | grep "Combined" | gawk -F" " '{ print $2 }'` ; echo $max_combined
+    max_combined=`ethtool -l  $interface | grep -A4 "Pre-set maximums" | grep "Combined" | gawk -F":" '{ print $2 }'` ; echo $max_combined
     ethtool -L $interface combined $max_combined
     ethtool -l $interface
-    echo "ethtool -L $interface combined $max_combined" >> /etc/rc.local
+    echo "ethtool -L $interface combined $max_combined" | sudo tee -a  /etc/rc.local
 
   fi
 done
@@ -125,4 +137,22 @@ chmod +x /etc/rc.local
 systemctl  status irqbalance
 
 
+
+####
+# E3 BM
+####
+
+# do not set rx-jumbo , if not set in pre-set max.
+interface=enp65s0f0
+interface=enp65s0f1
+# add below in for loop for all NICs
+rx_jumbo=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "RX Jumbo" | gawk -F":" '{ print $2 }'` ; echo $rx_jumbo
+rx=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "RX:" | gawk -F":" '{ print $2 }'` ; echo $rx
+tx=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "TX:" | gawk -F":" '{ print $2 }'` ; echo $tx
+
+sudo /sbin/ethtool -G $interface rx $rx tx $tx rx-jumbo $rx_jumbo
+sudo /sbin/ethtool -g $interface
+echo "/sbin/ethtool -G $interface rx $rx tx $tx rx-jumbo $rx_jumbo" | sudo tee -a  /etc/rc.local
+
+chmod +x /etc/rc.local
 

@@ -34,6 +34,89 @@ EOF
 region="region"
 date=`date +%Y%m%d-%H%M`
 
+
+# storage_subnet_domain_name=storage.nfs.oraclevcn.com
+# storage_server_node_count=2
+# storage_tier_1_disk_perf_tier=Lower Cost
+# storage_server_hostname_prefix=nfs-server-
+# quorum_server_hostname=qdevice
+# fs_type=Persistent
+# fs_ha=true
+
+# subnet_domain_name="storage.nfs.oraclevcn.com"
+storage_server_node_count="{{ storage_server_node_count }}"
+storage_server_hostname_prefix="{{ storage_server_hostname_prefix }}"
+storage_subnet_domain_name="{{ storage_subnet_domain_name }}"
+quorum_server_hostname="{{ quorum_server_hostname }}"
+fs_ha="{{ fs_ha }}"
+storage_tier_1_disk_count="{{ storage_tier_1_disk_count }}"
+storage_tier_1_disk_size="{{ storage_tier_1_disk_size }}"
+
+if [ "${fs_ha}" = "true" ]; then
+  quorum_node_count=1
+else
+  quorum_node_count=0
+fi
+
+
+if [ "${fs_ha}" = "true" ]; then
+
+    target_list_9100="'localhost:9090'"
+    server_list=""
+    a=0
+    z=0
+    while [ ${z} -lt ${storage_server_node_count} ]; do
+        server_array[${a}]="${storage_server_hostname_prefix}$((z+1)).${storage_subnet_domain_name}"
+        z=$((z+1))
+        a=$((a+1))
+    done;
+    for host in ${server_array[@]}; do
+            if [ -z ${server_list} ]; then
+                    server_list="'${host}:9664', '${host}:9100'"
+            else
+                    server_list="${server_list}, '${host}:9664', '${host}:9100'"
+            fi
+            if [ -z ${target_list_9100} ]; then
+                    target_list_9100="'${host}:9100'"
+            else
+                    target_list_9100="${target_list_9100}, '${host}:9100'"
+            fi
+
+    done;
+    
+    
+    quorum_list=""
+    a=0
+    z=0
+    while [ ${z} -lt ${quorum_node_count} ]; do
+        quorum_array[${a}]="${quorum_server_hostname}.${storage_subnet_domain_name}"
+        z=$((z+1))
+        a=$((a+1))
+    done;
+    for host in ${quorum_array[@]}; do
+            if [ -z ${quorum_list} ]; then
+                    quorum_list="'${host}:9664', '${host}:9100'"
+            else
+                    quorum_list="${quorum_list}, '${host}:9664', '${host}:9100'"
+            fi
+            if [ -z ${target_list_9100} ]; then
+                    target_list_9100="'${host}:9100'"
+            else
+                    target_list_9100="${target_list_9100}, '${host}:9100'"
+            fi
+
+    done;
+
+    echo "${server_list}, ${quorum_list}"
+    echo "${target_list_9100}"
+
+
+fi
+
+
+
+
+
 cat > /etc/prometheus/prometheus.yml << EOF
 # my global config
 global:
@@ -60,75 +143,25 @@ rule_files:
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
 scrape_configs:
+EOF
+
+
+#     - targets: ['localhost:9090']
+cat >> /etc/prometheus/prometheus.yml << EOF
   - job_name: 'prometheus'
 
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
     static_configs:
-    - targets: ['localhost:9090']
+    - targets: [${target_list_9100}]
+
 EOF
 
-
-# storage_subnet_domain_name=storage.nfs.oraclevcn.com
-# storage_server_node_count=2
-# storage_tier_1_disk_perf_tier=Lower Cost
-# storage_server_hostname_prefix=nfs-server-
-# quorum_server_hostname=qdevice
-# fs_type=Persistent
-# fs_ha=true
-
-# subnet_domain_name="storage.nfs.oraclevcn.com"
-storage_server_node_count="{{ storage_server_node_count }}"
-storage_server_hostname_prefix="{{ storage_server_hostname_prefix }}"
-storage_subnet_domain_name="{{ storage_subnet_domain_name }}"
-quorum_server_hostname="{{ quorum_server_hostname }}"
-fs_ha="{{ fs_ha }}"
-storage_tier_1_disk_count="{{ storage_tier_1_disk_count }}"
-storage_tier_1_disk_size="{{ storage_tier_1_disk_size }}"
-
-if [ "${fs_ha}" = "true" ]; then
-  quorum_node_count=1
-else
-  quorum_node_count=0
-fi
-
+# ,'storage-node-1:9100']
 
 
 if [ "${fs_ha}" = "true" ]; then
-
-    server_list=""
-	a=0
-	z=0
-	while [ ${z} -lt ${storage_server_node_count} ]; do
-        server_array[${a}]="${storage_server_hostname_prefix}$((z+1)).${storage_subnet_domain_name}"
-		z=$((z+1))
-		a=$((a+1))
-	done;
-	for host in ${server_array[@]}; do
-        	if [ -z ${server_list} ]; then
-                	server_list="'${host}:9664', '${host}:9100'"
-	        else
-	                server_list="${server_list}, '${host}:9664', '${host}:9100'"
-	        fi
-	done;
-    quorum_list=""
-	a=0
-	z=0
-	while [ ${z} -lt ${quorum_node_count} ]; do
-        quorum_array[${a}]="${quorum_server_hostname}.${storage_subnet_domain_name}"
-		z=$((z+1))
-		a=$((a+1))
-	done;
-	for host in ${quorum_array[@]}; do
-        	if [ -z ${quorum_list} ]; then
-                	quorum_list="'${host}:9664', '${host}:9100'"
-	        else
-	                quorum_list="${quorum_list}, '${host}:9664', '${host}:9100'"
-	        fi
-	done;
-
-echo "${server_list}, ${quorum_list}"
 
 cat >> /etc/prometheus/prometheus.yml << EOF
 
@@ -173,63 +206,6 @@ mkdir -p /etc/grafana/dashboards
 
 # I don't plan to use node_exporter.yaml,  since its not generic enough
 
-cat > /etc/grafana/provisioning/dashboards/node_exporter.yaml.old << EOF
-apiVersion: 1
-providers:
-  - name: 'NFS Cluster IaaS Dashboard'
-    type: file
-    updateIntervalSeconds: 10
-    options:
-      path: /etc/grafana/dashboards/node-exporter.json
-EOF
-
-
-case $storage_server_shape in
-        VM.Standard2.1)
-        NETWORK_WARN=600000000
-        NETWORK_CRIT=900000000
-        ;;
-        VM.Standard2.2)
-        NETWORK_WARN=1200000000
-        NETWORK_CRIT=1800000000
-        ;;
-        VM.Standard2.4)
-        NETWORK_WARN=2460000000
-        NETWORK_CRIT=3690000000
-        ;;
-        VM.Standard2.8)
-        NETWORK_WARN=4920000000
-        NETWORK_CRIT=7380000000
-        ;;
-        VM.Standard2.16)
-        NETWORK_WARN=9840000000
-        NETWORK_CRIT=14760000000
-        ;;
-        BM.HPC2.36|VM.Standard2.24)
-        NETWORK_WARN=14760000000
-        NETWORK_CRIT=22140000000
-        ;;
-	    VM.Standard.E3.Flex)
-	    NETWORK_WARN=$((dynamic_worker_ocpu*75000000))
-	    NETWORK_CRIT=$((dynamic_worker_ocpu*112500000))
-	    ;;
-        *)
-        NETWORK_WARN=14760000000
-        NETWORK_CRIT=22500000000
-        ;;
-esac
-echo "NETWORK WARN - $NETWORK_WARN"
-echo "NETWORK CRIT - $NETWORK_CRIT"
-sed -i "s/NETWORK_WARN/${NETWORK_WARN}/g" /etc/grafana/dashboards/node-exporter.json
-sed -i "s/NETWORK_CRIT/${NETWORK_CRIT}/g" /etc/grafana/dashboards/node-exporter.json
-
-block_volumes_per_server=${storage_tier_1_disk_count}
-AGGREGATE_WORKER_DISK=$((block_volumes_per_server*480000000))
-DISK_WARN=$(((AGGREGATE_WORKER_DISK/10)*6))
-DISK_CRIT=$(((AGGREGATE_WORKER_DISK/10)*9))
-echo "DISK THRESHOLDS : $DISK_WARN $DISK_CRIT"
-sed -i "s/DISK_WARN/${DISK_WARN}/g" /etc/grafana/dashboards/node-exporter.json
-sed -i "s/DISK_CRIT/${DISK_CRIT}/g" /etc/grafana/dashboards/node-exporter.json
 
 
 # Add Pacemaker HA clusters monitoring config
@@ -237,12 +213,15 @@ mkdir -p /etc/grafana/dashboards/sleha/
 curl https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/ha-cluster-details_rev2.json -o /etc/grafana/dashboards/sleha/ha-cluster-details_rev2.json
 curl https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/provider-sleha.yaml  -o /etc/grafana/provisioning/dashboards/provider-sleha.yaml
 
+# Node monitor - very detailed
+curl https://github.com/starsliao/Prometheus/blob/master/node_exporter/node-exporter-for-prometheus-dashboard-en.json -o /etc/grafana/dashboards/node-exporter-for-prometheus-dashboard-en.json
+
 # https://grafana.com/grafana/plugins/oci-metrics-datasource
 grafana-cli plugins install oci-metrics-datasource
 
 systemctl start grafana-server ; systemctl status grafana-server
 systemctl enable grafana-server
-#  systemctl restart grafana-server ; systemctl status grafana-server
+#
 
 exit 0
 

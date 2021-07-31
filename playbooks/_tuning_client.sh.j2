@@ -97,3 +97,155 @@ chmod +x /etc/rc.local
 
 # multi-threading off
 echo off  | sudo tee /sys/devices/system/cpu/smt/control
+
+
+
+echo '
+
+# These are defaults on OCI nodes already, but keeping it here to the complete list.
+net.ipv4.tcp_timestamps=1
+net.ipv4.tcp_sack=1
+net.ipv4.tcp_dsack=1
+net.ipv4.tcp_low_latency=0
+net.ipv4.tcp_adv_win_scale=1
+net.ipv4.tcp_window_scaling=1
+net.ipv4.tcp_syn_retries=6
+
+# changes
+net.ipv4.tcp_slow_start_after_idle=0
+net.ipv4.tcp_rmem=4096 87380 16777216
+net.ipv4.tcp_wmem=4096 65536 16777216
+net.core.rmem_max=16777216
+net.core.wmem_max=16777216
+net.core.rmem_default=16777216
+net.core.wmem_default=16777216
+net.core.optmem_max=16777216
+net.core.somaxconn = 8192
+net.core.netdev_max_backlog=250000
+sunrpc.udp_slot_table_entries=128
+sunrpc.tcp_slot_table_entries=128
+kernel.sched_min_granularity_ns = 10000000
+kernel.sched_wakeup_granularity_ns = 15000000
+
+' >> /etc/sysctl.conf
+
+
+sysctl -p /etc/sysctl.conf
+
+
+for x in $(seq 1 1 30) ; do echo $x ; ssh client-$x ' echo " ethtool -G ens3 rx 2047 tx 2047 rx-jumbo 8191 " | sudo tee -a /etc/rc.local  '  ; done ;
+
+
+
+vim update_sysctl.sh
+
+#!/bin/bash
+
+echo '
+
+# These are defaults on OCI nodes already, but keeping it here to the complete list.
+net.ipv4.tcp_timestamps=1
+net.ipv4.tcp_sack=1
+net.ipv4.tcp_dsack=1
+net.ipv4.tcp_low_latency=0
+net.ipv4.tcp_adv_win_scale=1
+net.ipv4.tcp_window_scaling=1
+net.ipv4.tcp_syn_retries=6
+
+# changes
+net.ipv4.tcp_slow_start_after_idle=0
+net.ipv4.tcp_rmem=4096 87380 16777216
+net.ipv4.tcp_wmem=4096 65536 16777216
+net.core.rmem_max=16777216
+net.core.wmem_max=16777216
+net.core.rmem_default=16777216
+net.core.wmem_default=16777216
+net.core.optmem_max=16777216
+net.core.somaxconn = 8192
+net.core.netdev_max_backlog=250000
+sunrpc.udp_slot_table_entries=128
+sunrpc.tcp_slot_table_entries=128
+kernel.sched_min_granularity_ns = 10000000
+kernel.sched_wakeup_granularity_ns = 15000000
+
+' >> /etc/sysctl.conf
+
+sysctl -p /etc/sysctl.conf
+
+
+chmod +x update_sysctl.sh
+
+
+for x in $(seq 2 1 30) ; do echo $x ; scp /home/opc/update_sysctl.sh client-$x:~/  ; done ;
+
+for x in $(seq 1 1 30) ; do echo $x ; ssh client-$x ' sudo /home/opc/update_sysctl.sh  '  ; done ;
+
+for x in $(seq 1 1 30) ; do echo $x ; ssh client-$x ' sudo /usr/sbin/tuned-adm profile throughput-performance ; /usr/sbin/tuned-adm active  '  ; done ;
+
+
+REVERT
+
+vim revert_sysctl.sh
+
+#!/bin/bash
+
+echo '
+
+# These are defaults on OCI nodes already, but keeping it here to the complete list.
+net.ipv4.tcp_timestamps=1
+net.ipv4.tcp_sack=1
+net.ipv4.tcp_dsack=1
+net.ipv4.tcp_low_latency=0
+net.ipv4.tcp_adv_win_scale=1
+net.ipv4.tcp_window_scaling=1
+net.ipv4.tcp_syn_retries=6
+
+# revert changes
+net.ipv4.tcp_slow_start_after_idle = 1
+net.ipv4.tcp_syn_retries = 6
+net.ipv4.tcp_rmem = 4096        131072  6291456
+net.ipv4.tcp_wmem = 4096        16384   4194304
+net.core.rmem_max = 212992
+net.core.wmem_max = 212992
+net.core.rmem_default = 212992
+net.core.wmem_default = 212992
+net.core.optmem_max = 20480
+net.core.somaxconn = 4096
+net.core.netdev_max_backlog = 1000
+sunrpc.udp_slot_table_entries = 16
+sunrpc.tcp_slot_table_entries = 2
+kernel.sysrq = 16
+kernel.sched_min_granularity_ns = 1500000
+kernel.sched_wakeup_granularity_ns = 2000000
+vm.dirty_ratio = 20
+vm.dirty_background_ratio = 10
+vm.swappiness = 60
+
+# keep it high
+vm.min_free_kbytes = 16777216
+
+' >> /etc/sysctl.conf
+
+sysctl -p /etc/sysctl.conf
+
+
+chmod +x revert_sysctl.sh
+
+
+for x in $(seq 2 1 30) ; do echo $x ; scp /home/opc/revert_sysctl.sh client-$x:~/  ; done ;
+
+for x in $(seq 1 1 30) ; do echo $x ; ssh client-$x ' sudo /home/opc/revert_sysctl.sh  '  ; done ;
+
+
+sudo mount -t nfs -o vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev  10.0.1.220:/mnt/nfsshare/exports  /mnt/nfs_e3
+
+
+
+for x in $(seq 2 1 30) ; do echo $x ; ssh client-$x 'sudo mount -t nfs -o vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev  10.0.1.220:/mnt/nfsshare/exports  /mnt/nfs_e3'  ; done ;
+
+sudo sed -i 's/10.0.1.200/10.0.1.220/g'  /etc/fstab
+
+for x in $(seq 2 1 30) ; do echo $x ; ssh client-$x 'sudo sed -i 's/10.0.1.200/10.0.1.220/g'  /etc/fstab '  ; done ;
+
+
+for x in $(seq 2 1 30) ; do echo $x ; ssh client-$x ' sudo reboot  '  ; done ;

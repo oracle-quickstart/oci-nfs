@@ -51,30 +51,23 @@ data "oci_core_images" "InstanceImageOCID" {
     operating_system          = var.instance_os
     operating_system_version  = var.linux_os_version
 
-    filter {
-      name   = "display_name"
-      values = ["^.*Oracle[^G]*$"]
-      regex  = true
-  }
 
-/*
     # To remove ampere Arm images.
     # Oracle-Linux-7.9-aarch64-2021.04.13-0 for Ampere Arm images.
     # Oracle-Linux-7.9-2021.04.09-0
     filter {
       name   = "display_name"
-      #values = ["^((?!aarch).)*$"]
       values = ["^([a-zA-z]+)-([a-zA-z]+)-([\\.0-9]+)-([\\.0-9-]+)$"]
       regex  = true
   }
-*/
 
+
+/*
     filter {
       name   = "display_name"
       values = ["Oracle-Linux-7.9-2021.04.09-0"]
       regex  = false
   }
-
-
+*/
 
 }
