@@ -121,17 +121,18 @@ variable "ad_number" {
 }
 
 
-variable storage_tier_1_disk_perf_tier {
+variable fs1_disk_perf_tier {
   default = "Higher Performance"
   description = "Select block volume storage performance tier based on your performance needs. Refer to variable volume_type_vpus_per_gb_mapping for valid values, eg: Higher Performance, Balanced, Lower Cost, Ultra High Performance - 120VPUs, Ultra High Performance - 30VPUs, etc..."
 }
 
-variable storage_tier_1_disk_count {
+variable fs1_disk_count {
   default = "6"
   description = "Number of block volume disk for entire filesystem (not per file server). If var.fs_ha  was set to true, then these Block volumes will be shared by both NFS file servers, otherwise a single node NFS server will be deployed with Block volumes. Block volumes are more durable and highly available."
 }
 
-variable storage_tier_1_disk_size {
+
+variable fs1_disk_size {
   default = "800"
   description = "Select size in GB for each block volume/disk, min 50.  Total NFS filesystem raw capacity will be NUMBER OF BLOCK VOLUMES * BLOCK VOLUME SIZE."
 }
@@ -278,4 +279,66 @@ variable "cluster_name" {
 }
 
 
+
+variable "use_uhp" {
+  default = "false"
+}
+
+variable "use_non_uhp_fs1" {
+  default = "false"
+}
+
+variable "use_non_uhp_fs2" {
+  default = "false"
+}
+
+variable "use_non_uhp_fs3" {
+  default = "false"
+}
+
+
+variable "uhp_fs0_disk_perf_tier" {
+  default = "Ultra High Performance - 30VPUs"
+}
+variable "uhp_fs0_disk_count" {
+  default = "1"
+}
+variable "uhp_fs0_disk_size" {
+  default = "50"
+}
+
+/*
+variable "fs1_disk_perf_tier" {
+  default = "Balanced"
+}
+variable "fs1_disk_count" {
+  default = "2"
+}
+variable "fs1_disk_size" {
+  default = "50"
+}
+*/
+
+
+variable "fs2_disk_perf_tier" {
+  default = "Balanced"
+}
+variable "fs2_disk_count" {
+  default = "2"
+}
+variable "fs2_disk_size" {
+  default = "50"
+}
+
+
+
+variable "fs3_disk_perf_tier" {
+  default = "Balanced"
+}
+variable "fs3_disk_count" {
+  default = "3"
+}
+variable "fs3_disk_size" {
+  default = "50"
+}
 

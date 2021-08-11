@@ -13,7 +13,7 @@ make_filesystem()
     su=$(({{ block_size }}*1024)) ;  echo $su
     sw=$((lvm_stripes_cnt)) ; echo $sw
     mkfs.xfs -f -i size=512 -n size=8192 -d su=${su},sw=${sw} /dev/${vg_nfs_name}/${disk_name}
-    mount_point="/mnt/nfsshare"
+    ###mount_point="/mnt/nfsshare"
     mkdir -p ${mount_point}
     # Temporary mount to create directories needed by ocf::heartbeat:exportfs
     mount -t xfs -o noatime,inode64,uquota,prjquota /dev/${vg_nfs_name}/${disk_name} ${mount_point}
@@ -56,11 +56,11 @@ create_volume_group() {
 
 process_disks()
 {
-  disk_name="disk"
+  disk_lst=$1
+  disk_name=$2
   vg_nfs_name="vg_nfs_${disk_name}"
   disk_counter=1
   count=1
-  disk_lst=$1
   # Configure physical volumes and volume group
   for disk in $disk_lst
   do
@@ -70,11 +70,45 @@ process_disks()
   done
 
   lvm_stripes_cnt=$((disk_counter-1))
-  make_filesystem
+  make_filesystem 
 }
 
+
+find_UHP_block_volume()
+{
+
+  blk_lst=""  ;  blk_cnt=0
+  # For iSCSI UHP, block plugin will do batch iscsi login or logout for multipath. Its not done by TF code
+  while [ ! -e /dev/mapper/mpatha ]
+  do
+    sleep 60s
+    echo "Waiting for UHP block plugin to do batch iscsi login to complete ..."
+  done
+
+  if [ "{{ fs_ha }}" = "true" ]; then
+      if [ "{{ use_uhp }}" = "true" ]; then
+          blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | grep "vdc$" | sort )
+          blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | grep "vdc$" | wc -l)
+      else
+          blk_lst=""
+          blk_cnt=0
+      fi
+  else
+      if [ "{{ use_uhp }}" = "true" ]; then
+          blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme |  grep "vdb$" | sort )
+          blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme |  grep "vdb$" | wc -l)
+      else
+          blk_lst=""
+          blk_cnt=0
+      fi
+  fi
+}
+      
+
+# pass 2 parameters -  $1 - start position and $2 - disk_count
 find_block_volumes()
 {
+  blk_lst=""  ;  blk_cnt=0
   # Wait for block-attach of the Block volumes to complete. Terraform then creates the below file on server nodes of cluster.
   while [ ! -f /tmp/block-attach.complete ]
   do
@@ -82,16 +116,46 @@ find_block_volumes()
     echo "Waiting for block-attach via Terraform to  complete ..."
   done
 
+  start_position=$1 ; disk_count=$2
+  #if [ $start_position -eq 1 ]; then
+  #    head=$start_position
+  #    tail=$disk_count
+  #else
+      head=$((disk_count + start_position - 1 ))
+      tail=$disk_count
+  #fi
+  echo "head -n $head | tail -n $tail "
   if [ "{{ fs_ha }}" = "true" ]; then
-      # Exclude, /dev/oracleoci/oraclevdb from the list, since it will be used for Stonith fencing.
-      # Gather list of block devices
-      # blk_lst will be full path, eg  /dev/oracleoci/oraclevdd , etc
-      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | grep -v vdb | sort)
-      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | grep -v vdb | wc -l)
+      if [ "{{ use_uhp }}" = "true" ]; then
+      
+          # Exclude, /dev/oracleoci/oraclevdb from the list, since it will be used for Stonith fencing.
+          # Exclude, /dev/oracleoci/oraclevdc from the list, since it will be used for UHP volume.
+          # Gather rest of the block devices
+          # blk_lst will be full path, eg  /dev/oracleoci/oraclevdd , etc
+          blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$|vdc$" | sort | head -n $head | tail -n $tail)
+          blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$|vdc$" | head -n $head | tail -n $tail | wc -l)
+      else
+      
+          # Exclude, /dev/oracleoci/oraclevdb from the list, since it will be used for Stonith fencing.
+          # Gather rest of the block devices
+          # blk_lst will be full path, eg  /dev/oracleoci/oraclevdd , etc
+          blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | sort | head -n $head | tail -n $tail)
+          blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | head -n $head | tail -n $tail | wc -l)
+      fi
+      
   else
-      # Gather list of block devices
-      blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | sort)
-      blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | wc -l)
+      if [ "{{ use_uhp }}" = "true" ]; then
+
+          # Exclude, /dev/oracleoci/oraclevdb from the list, since it will be used for UHP volume.
+          # Gather list of block devices
+          blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | sort | head -n $head | tail -n $tail)
+          blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | head -n $head | tail -n $tail | wc -l)
+      else
+          # Gather list of block devices
+          blk_lst=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | sort | head -n $head | tail -n $tail)
+          blk_cnt=$(ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | head -n $head | tail -n $tail | wc -l)
+      fi
+  
   fi
 }
 
@@ -99,11 +163,39 @@ find_block_volumes()
 
 configure_disks()
 {
+  if [ "$use_uhp" = "true" ]; then
+      mount_point="/mnt/${fs0_name}"
+      find_UHP_block_volume
+      process_disks "$blk_lst" "disk0"
+  fi
+   
   if [ "{{ fs_type }}" = "Persistent" ]; then
 
-    find_block_volumes
+    if [ "$use_non_uhp_fs1" = "true" ]; then
+        mount_point="/mnt/${fs1_name}"
+        find_block_volumes "1" "$fs1_disk_count"
+        process_disks "$blk_lst" "disk"
+    fi
+
+    if [ "$use_non_uhp_fs2" = "true" ]; then
+        mount_point="/mnt/${fs2_name}"
+        start_position=$((fs1_disk_count + 1))
+        find_block_volumes "$start_position" "$fs2_disk_count"
+        process_disks "$blk_lst" "disk2"
+    fi
+
+    if [ "$use_non_uhp_fs3" = "true" ]; then
+        mount_point="/mnt/${fs3_name}"
+        start_position=$((fs1_disk_count + fs2_disk_count + 1))
+        find_block_volumes "$start_position" "$fs3_disk_count"
+        process_disks "$blk_lst" "disk3"
+    fi
+
+ 
+
+    ##find_block_volumes
     # call function
-    process_disks "$blk_lst"
+    ##process_disks "$blk_lst"
 
   else
 
@@ -115,6 +207,8 @@ configure_disks()
       # call function
       process_disks "$nvme_lst"
     else
+    
+    ## TODO - update to support multiple xfs for single node.
       find_block_volumes
       # call function
       process_disks "$blk_lst"
@@ -131,6 +225,27 @@ configure_disks()
 ##################
 
 set -x
+
+use_uhp={{ use_uhp }}
+use_non_uhp_fs1={{ use_non_uhp_fs1 }}
+use_non_uhp_fs2={{ use_non_uhp_fs2 }}
+use_non_uhp_fs3={{ use_non_uhp_fs3 }}
+
+# fs0 reserverd for uhp
+fs0_name={{ fs0_name }}
+fs0_disk_count=1
+
+fs1_name={{ fs1_name }}
+fs1_disk_count={{ fs1_disk_count }}
+
+fs2_name={{ fs2_name }}
+fs2_disk_count={{ fs2_disk_count }}
+
+
+fs3_name={{ fs3_name }}
+fs3_disk_count={{ fs3_disk_count }}
+
+
 
 
 coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l`

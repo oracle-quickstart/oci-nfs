@@ -31,6 +31,26 @@ resource "oci_core_route_table" "pubic_route_table" {
   }
 }
 
+data "oci_core_services" "all_oci_services" {
+  filter {
+    name   = "name"
+    values = ["All .* Services In Oracle Services Network"]
+    regex  = true
+  }
+  count = var.use_existing_vcn ? 0 : (var.use_uhp ? 1 : 0)
+}
+
+resource "oci_core_service_gateway" "service_gateway" {
+  compartment_id = var.compartment_ocid
+  display_name   = "${local.cluster_name}_service_gateway"
+  
+  services {
+    service_id = lookup(data.oci_core_services.all_oci_services[0].services[0], "id")
+  }
+
+  vcn_id  = oci_core_virtual_network.nfs[0].id
+  count = var.use_existing_vcn ? 0 : (var.use_uhp ? 1 : 0)
+}
 
 resource "oci_core_nat_gateway" "nat_gateway" {
   count          = var.use_existing_vcn ? 0 : 1
@@ -49,7 +69,21 @@ resource "oci_core_route_table" "private_route_table" {
     cidr_block        = "0.0.0.0/0"
     network_entity_id = oci_core_nat_gateway.nat_gateway[0].id
   }
+  
+  dynamic "route_rules" {
+    # * If Service Gateway is created with the module, automatically creates a rule to handle traffic for "all services" through Service Gateway
+    for_each = var.use_existing_vcn ? [] : (var.use_uhp ? [1] : [])
+
+    content {
+      destination       = lookup(data.oci_core_services.all_oci_services[0].services[0], "cidr_block")
+      destination_type  = "SERVICE_CIDR_BLOCK"
+      network_entity_id = oci_core_service_gateway.service_gateway[0].id
+      description       = "Terraformed - Auto-generated at Service Gateway creation: All Services in region to Service Gateway"
+    }
+  }
+  
 }
+
 
 resource "oci_core_security_list" "public_security_list" {
   count          = var.use_existing_vcn ? 0 : 1

@@ -48,8 +48,9 @@ locals {
   derived_storage_server_shape = (length(regexall("^Scratch", var.fs_type)) > 0 ? var.scratch_storage_server_shape : var.persistent_storage_server_shape)
   derived_storage_server_node_count = (var.fs_ha ? 2 : 1)
   
-  uhp_disk_perf_tier=(length(regexall("Ultra High Performance",var.storage_tier_1_disk_perf_tier)) > 0 ? true : false)
-  derived_storage_server_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : (local.uhp_disk_perf_tier ? 1 : var.storage_tier_1_disk_count))
+  derived_fs1_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : (var.use_non_uhp_fs1 ? var.fs1_disk_count : 0) )
+  derived_fs2_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : (var.use_non_uhp_fs2 ? var.fs2_disk_count : 0) )
+  derived_fs3_disk_count = (length(regexall("DenseIO",local.derived_storage_server_shape)) > 0 ? 0 : (var.use_non_uhp_fs3 ? var.fs3_disk_count : 0) )
 
   nfs = (length(regexall("^NFS", var.fs_name)) > 0 ? true : false)
   nfs_server_ip = (var.fs_ha ? (var.ha_vip_private_ip) :  (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) : element(concat(data.oci_core_private_ips.private_ips_by_vnic[0].private_ips.*.ip_address,  [""]), 0) ) : element(concat(oci_core_instance.storage_server.*.private_ip, [""]), 0) )     )

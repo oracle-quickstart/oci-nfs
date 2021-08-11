@@ -23,12 +23,16 @@
       plugins:
         osms:
           disabled: true
+        oci-blockautoconfig:
+          disabled: false
+          exec: "/usr/libexec/oracle-cloud-agent/plugins/oci-blockautoconfig/oci-blockautoconfig"
   when: agent_file.stat.exists
 
 - name: Write back to a file
   copy:
     content: '{{ mydata | to_nice_yaml }}'
     dest: /etc/oracle-cloud-agent/agent.yml
+    backup: yes
   when: agent_file.stat.exists
 
 - name: Restart cloud agent

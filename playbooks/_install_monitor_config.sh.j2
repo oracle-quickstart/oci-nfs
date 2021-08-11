@@ -37,7 +37,7 @@ date=`date +%Y%m%d-%H%M`
 
 # storage_subnet_domain_name=storage.nfs.oraclevcn.com
 # storage_server_node_count=2
-# storage_tier_1_disk_perf_tier=Lower Cost
+# fs1_disk_perf_tier=Lower Cost
 # storage_server_hostname_prefix=nfs-server-
 # quorum_server_hostname=qdevice
 # fs_type=Persistent
@@ -49,8 +49,6 @@ storage_server_hostname_prefix="{{ storage_server_hostname_prefix }}"
 storage_subnet_domain_name="{{ storage_subnet_domain_name }}"
 quorum_server_hostname="{{ quorum_server_hostname }}"
 fs_ha="{{ fs_ha }}"
-storage_tier_1_disk_count="{{ storage_tier_1_disk_count }}"
-storage_tier_1_disk_size="{{ storage_tier_1_disk_size }}"
 
 if [ "${fs_ha}" = "true" ]; then
   quorum_node_count=1

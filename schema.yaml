@@ -71,9 +71,22 @@ groupings:
     - storage_server_boot_volume_size
   - title: "NFS Storage Configuration"
     variables:
-    - storage_tier_1_disk_perf_tier
-    - storage_tier_1_disk_count
-    - storage_tier_1_disk_size
+    - use_uhp
+    - uhp_fs0_disk_perf_tier
+    - uhp_fs0_disk_count
+    - uhp_fs0_disk_size
+    - use_non_uhp_fs1
+    - fs1_disk_perf_tier
+    - fs1_disk_count
+    - fs1_disk_size
+    - use_non_uhp_fs2
+    - fs2_disk_perf_tier
+    - fs2_disk_count
+    - fs2_disk_size
+    - use_non_uhp_fs3
+    - fs3_disk_perf_tier
+    - fs3_disk_count
+    - fs3_disk_size
     visible:
       not:
         - eq:
@@ -352,7 +365,38 @@ variables:
     title: "Size of the boot volume in GB. Recommend using 200-300 GB in production to ensure there is enough space for logs."
     default: 300
 
-  storage_tier_1_disk_perf_tier:
+
+
+  use_uhp:
+    type: boolean
+    title: "XFS-0 : Build file system using Ultra High Performance Block Volume"
+    description: "Select the checkbox, if you want to use Ultra High Performance Block Volume for one of your XFS file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
+    required: false
+    default: false
+
+  use_non_uhp_fs1:
+    type: boolean
+    title: "XFS-1 : Build file system using either Higher/Balanced/Lower Cost Performance Block Volumes"
+    description: "Create XFS-1 file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
+    required: false
+    default: false
+
+  use_non_uhp_fs2:
+    type: boolean
+    title: "XFS-2 : Build file system using either Higher/Balanced/Lower Cost Performance Block Volumes"
+    description: "Create XFS-2 file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
+    required: false
+    default: false
+
+  use_non_uhp_fs3:
+    type: boolean
+    title: "XFS-3 : Build file system using either Higher/Balanced/Lower Cost Performance Block Volumes"
+    description: "Create XFS-3 file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
+    required: false
+    default: false
+
+
+  uhp_fs0_disk_perf_tier:
     title: "Block Volume Storage Performance tier"
     description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
     type: enum
@@ -367,17 +411,61 @@ variables:
     - "Ultra High Performance - 50VPUs"
     - "Ultra High Performance - 40VPUs"
     - "Ultra High Performance - 30VPUs"
+    required: true
+    default: "Ultra High Performance - 30VPUs"
+    visible:
+      and:
+        - ${use_uhp}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+  uhp_fs0_disk_count:
+    title: "Number of block volumes"
+    description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
+    type: integer
+    default: 1
+    minimum: 1
+    maximum: 1
+    required: true
+    visible: false
+
+
+  uhp_fs0_disk_size:
+    title: "Block volume size"
+    description: "Select size in GB for each block volume/disk, min 50."
+    type: integer
+    default: 1000
+    minimum: 50
+    maximum: 32768
+    required: true
+    visible:
+      and:
+        - ${use_uhp}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+
+
+  fs1_disk_perf_tier:
+    title: "Block Volume Storage Performance tier"
+    description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
+    type: enum
+    enum:
     - "Higher Performance"
     - "Balanced"
     - "Lower Cost"
     required: true
     default: "Higher Performance"
     visible:
-      - eq:
-        - ${fs_type}
-        - "Persistent"
+      and:
+        - ${use_non_uhp_fs1}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
 
-  storage_tier_1_disk_count:
+  fs1_disk_count:
     title: "Number of block volumes"
     description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
     type: integer
@@ -389,21 +477,23 @@ variables:
       and:
         - or:
           - eq:
-            - ${storage_tier_1_disk_perf_tier}
+            - ${fs1_disk_perf_tier}
             - "Higher Performance"
           - eq:
-            - ${storage_tier_1_disk_perf_tier}
+            - ${fs1_disk_perf_tier}
             - "Balanced"
           - eq:
-            - ${storage_tier_1_disk_perf_tier}
+            - ${fs1_disk_perf_tier}
             - "Lower Cost"
         - and:
+          - ${use_non_uhp_fs1}
           - eq:
             - ${fs_type}
             - "Persistent"
 
 
-  storage_tier_1_disk_size:
+
+  fs1_disk_size:
     title: "Block volume size"
     description: "Select size in GB for each block volume/disk, min 50."
     type: integer
@@ -412,9 +502,131 @@ variables:
     maximum: 32768
     required: true
     visible:
-      - eq:
-        - ${fs_type}
-        - "Persistent"
+      and:
+        - ${use_non_uhp_fs1}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+  fs2_disk_perf_tier:
+    title: "Block Volume Storage Performance tier"
+    description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
+    type: enum
+    enum:
+    - "Higher Performance"
+    - "Balanced"
+    - "Lower Cost"
+    required: true
+    default: "Higher Performance"
+    visible:
+      and:
+        - ${use_non_uhp_fs2}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+  fs2_disk_count:
+    title: "Number of block volumes"
+    description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
+    type: integer
+    default: 4
+    minimum: 1
+    maximum: 32
+    required: true
+    visible:
+      and:
+        - or:
+          - eq:
+            - ${fs2_disk_perf_tier}
+            - "Higher Performance"
+          - eq:
+            - ${fs2_disk_perf_tier}
+            - "Balanced"
+          - eq:
+            - ${fs2_disk_perf_tier}
+            - "Lower Cost"
+        - and:
+          - ${use_non_uhp_fs2}
+          - eq:
+            - ${fs_type}
+            - "Persistent"
+
+
+  fs2_disk_size:
+    title: "Block volume size"
+    description: "Select size in GB for each block volume/disk, min 50."
+    type: integer
+    default: 1000
+    minimum: 50
+    maximum: 32768
+    required: true
+    visible:
+      and:
+        - ${use_non_uhp_fs2}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+
+  fs3_disk_perf_tier:
+    title: "Block Volume Storage Performance tier"
+    description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
+    type: enum
+    enum:
+    - "Higher Performance"
+    - "Balanced"
+    - "Lower Cost"
+    required: true
+    default: "Higher Performance"
+    visible:
+      and:
+        - ${use_non_uhp_fs3}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
+  fs3_disk_count:
+    title: "Number of block volumes"
+    description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
+    type: integer
+    default: 2
+    minimum: 1
+    maximum: 32
+    required: true
+    visible:
+      and:
+        - or:
+          - eq:
+            - ${fs3_disk_perf_tier}
+            - "Higher Performance"
+          - eq:
+            - ${fs3_disk_perf_tier}
+            - "Balanced"
+          - eq:
+            - ${fs3_disk_perf_tier}
+            - "Lower Cost"
+        - and:
+          - ${use_non_uhp_fs3}
+          - eq:
+            - ${fs_type}
+            - "Persistent"
+
+
+  fs3_disk_size:
+    title: "Block volume size"
+    description: "Select size in GB for each block volume/disk, min 50."
+    type: integer
+    default: 1000
+    minimum: 50
+    maximum: 32768
+    required: true
+    visible:
+      and:
+        - ${use_non_uhp_fs3}
+        - eq:
+          - ${fs_type}
+          - "Persistent"
+
 
   create_compute_nodes:
     type: boolean

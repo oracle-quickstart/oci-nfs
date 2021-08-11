@@ -216,13 +216,15 @@
     file:
       path: "{{ mount_point }}"
       state: directory
+    when: use_non_uhp_fs1|bool
   - name: Mount NFSv3
     mount:
       path: "{{ mount_point }}"
-      src: "{{ nfs_server_ip }}:/mnt/nfsshare/exports"
+      src: "{{ nfs_server_ip }}:{{ fs1_dir }}/exports"
       fstype: nfs
       opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
       state: mounted
+    when: use_non_uhp_fs1|bool
   - name: set nfsshare permissions
     become: true
     file:
@@ -232,18 +234,21 @@
       group: opc
     async: 30
     poll: 0
+    when: use_non_uhp_fs1|bool
   - name: create nfs mount_point directory
     become: true
     file:
       path: "{{ mount_point }}v4"
       state: directory
+    when: use_non_uhp_fs1|bool
   - name: Mount NFSv4
     mount:
       path: "{{ mount_point }}v4"
-      src: "{{ nfs_server_ip }}:/mnt/nfsshare/exports"
+      src: "{{ nfs_server_ip }}:{{ fs1_dir }}/exports"
       fstype: nfs
       opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
       state: mounted
+    when: use_non_uhp_fs1|bool
   - name: set nfsshare permissions
     become: true
     file:
@@ -253,4 +258,158 @@
       group: opc
     async: 30
     poll: 0
+    when: use_non_uhp_fs1|bool
+
+
+
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}/uhp"
+      state: directory
+    when: use_uhp|bool
+
+  - name: Mount NFSv3
+    mount:
+      path: "{{ mount_point }}/uhp"
+      src: "{{ nfs_server_ip }}:{{ fs0_dir }}/exports"
+      fstype: nfs
+      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+    when: use_uhp|bool
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}/uhp"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0
+    when: use_uhp|bool
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}/uhp_v4"
+      state: directory
+    when: use_uhp|bool
+  - name: Mount NFSv4
+    mount:
+      path: "{{ mount_point }}/uhp_v4"
+      src: "{{ nfs_server_ip }}:{{ fs0_dir }}/exports"
+      fstype: nfs
+      opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+    when: use_uhp|bool
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}/uhp_v4"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0
+    when: use_uhp|bool
+
+
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}/disk2"
+      state: directory
+    when: use_non_uhp_fs2|bool
+  - name: Mount NFSv3
+    mount:
+      path: "{{ mount_point }}/disk2"
+      src: "{{ nfs_server_ip }}:{{ fs2_dir }}/exports"
+      fstype: nfs
+      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+    when: use_non_uhp_fs2|bool
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}/disk2"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0
+    when: use_non_uhp_fs2|bool
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}/disk2_v4"
+      state: directory
+    when: use_non_uhp_fs2|bool
+  - name: Mount NFSv4
+    mount:
+      path: "{{ mount_point }}/disk2_v4"
+      src: "{{ nfs_server_ip }}:{{ fs2_dir }}/exports"
+      fstype: nfs
+      opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+    when: use_non_uhp_fs2|bool
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}/disk2_v4"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0
+    when: use_non_uhp_fs2|bool
+
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}/disk3"
+      state: directory
+    when: use_non_uhp_fs3|bool
+  - name: Mount NFSv3
+    mount:
+      path: "{{ mount_point }}/disk3"
+      src: "{{ nfs_server_ip }}:{{ fs3_dir }}/exports"
+      fstype: nfs
+      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+    when: use_non_uhp_fs3|bool
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}/disk3"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0
+    when: use_non_uhp_fs3|bool
+  - name: create nfs mount_point directory
+    become: true
+    file:
+      path: "{{ mount_point }}/disk3_v4"
+      state: directory
+    when: use_non_uhp_fs3|bool
+  - name: Mount NFSv4
+    mount:
+      path: "{{ mount_point }}/disk3_v4"
+      src: "{{ nfs_server_ip }}:{{ fs3_dir }}/exports"
+      fstype: nfs
+      opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
+      state: mounted
+    when: use_non_uhp_fs3|bool
+  - name: set nfsshare permissions
+    become: true
+    file:
+      path: "{{ mount_point }}/disk3_v4"
+      state: directory
+      owner: opc
+      group: opc
+    async: 30
+    poll: 0
+    when: use_non_uhp_fs3|bool
+
+
 

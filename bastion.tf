@@ -75,7 +75,6 @@ resource "oci_core_instance" "bastion" {
       private_fs_subnet_dns_label = data.oci_core_subnet.private_fs_subnet.dns_label,
       storage_subnet_domain_name = local.storage_subnet_domain_name,
       storage_server_node_count = local.derived_storage_server_node_count,
-      storage_tier_1_disk_perf_tier = var.storage_tier_1_disk_perf_tier,
       mount_point = var.mount_point,
       block_size = var.block_size,
       storage_server_hostname_prefix = var.storage_server_hostname_prefix,
@@ -87,9 +86,25 @@ resource "oci_core_instance" "bastion" {
       private_fs_subnet_cidr_block = data.oci_core_subnet.private_fs_subnet.cidr_block,
       quorum_server_hostname = var.quorum_server_hostname,
       install_monitor_agent = local.install_monitor_agent,
-      storage_tier_1_disk_count = var.storage_tier_1_disk_count,
-      storage_tier_1_disk_size = var.storage_tier_1_disk_size,
 
+      use_uhp = var.use_uhp,
+      use_non_uhp_fs1 = var.use_non_uhp_fs1,
+      use_non_uhp_fs2 = var.use_non_uhp_fs2,
+      use_non_uhp_fs3 = var.use_non_uhp_fs3,
+
+      fs1_disk_perf_tier = var.fs1_disk_perf_tier,
+      fs1_disk_count = var.fs1_disk_count,
+      fs1_disk_size = var.fs1_disk_size,
+
+      fs2_disk_perf_tier = var.fs2_disk_perf_tier,
+      fs2_disk_count = var.fs2_disk_count,
+      fs2_disk_size = var.fs2_disk_size,
+
+      fs3_disk_perf_tier = var.fs3_disk_perf_tier,
+      fs3_disk_count = var.fs3_disk_count,
+      fs3_disk_size = var.fs3_disk_size,
+      
+      
     })
 
     destination   = "/home/opc/playbooks/inventory"
@@ -122,7 +137,7 @@ resource "oci_core_instance" "bastion" {
 }
 
 resource "null_resource" "run_configure_sh" {
-  depends_on = [ oci_core_instance.bastion, null_resource.notify_storage_server_nodes_block_attach_complete ]
+  depends_on = [ oci_core_instance.bastion, null_resource.notify_storage_server_nodes_fs1_block_attach_complete, null_resource.notify_storage_server_nodes_fs2_block_attach_complete , null_resource.notify_storage_server_nodes_fs3_block_attach_complete ,  null_resource.notify_storage_server_nodes_stonith_fencing_block_attach_complete ]
   count      = var.bastion_node_count
 
     connection {
@@ -201,9 +216,23 @@ resource "oci_core_instance" "storage_server" {
         memory_in_gbs = var.storage_server_custom_memory ? var.storage_server_memory : 16 * shape_config.value
       }
   }
+  
+  agent_config {
+    is_management_disabled = true
+    plugins_config {
+      desired_state = "ENABLED"
+      name = "Block Volume Management"
+      }
+  }
+ 
+ 
+    /*
   agent_config {
     is_management_disabled = true
   }
+  */
+
+
 
   timeouts {
     create = "120m"

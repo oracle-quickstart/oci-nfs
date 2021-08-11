@@ -116,11 +116,11 @@ persistent_storage_server_shape="BM.Standard2.52"
 # set/uncomment, when fs_type="Scratch", otherwise, its value is ignored.
 # scratch_storage_server_shape="VM.DenseIO2.16"
 # Storage disk (OCI Block Volumes) to attach for Persistent NFS filesystem.  Not applicable for "Scratch" filesystem, since it will use local NVMe SSDs attached to the VM/BM DenseIO node.
-storage_tier_1_disk_count="8"
+fs1_disk_count="8"
 # Disk capacity in GB per disk
-storage_tier_1_disk_size="800"
+fs1_disk_size="800"
 # Disk performance tiers - "Higher Performance",  "Balanced" & "Lower Cost"
-storage_tier_1_disk_perf_tier="Higher Performance"
+fs1_disk_perf_tier="Higher Performance"
 create_compute_nodes=true
 client_node_shape="VM.Standard.E2.2"
 client_node_count=1
