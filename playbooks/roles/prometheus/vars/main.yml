@@ -1,0 +1,6 @@
+---
+serviceName: "prometheus"
+userId: "root"
+groupId: "root"
+exec_command: "/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml"
+version: "2.28.1"

@@ -59,12 +59,12 @@ resource "oci_core_instance" "bastion" {
 
   provisioner "file" {
     content        = templatefile("${path.module}/inventory.tpl", {  
-      bastion_name = oci_core_instance.bastion[0].display_name,
+      bastion_name = oci_core_instance.bastion[0].hostname_label,
       bastion_ip = oci_core_instance.bastion[0].private_ip,
-      storage = zipmap(data.oci_core_instance.storage_server.*.display_name, data.oci_core_instance.storage_server.*.private_ip),
-      compute = zipmap(data.oci_core_instance.client_node.*.display_name, data.oci_core_instance.client_node.*.private_ip),
-      quorum = zipmap(data.oci_core_instance.quorum_server.*.display_name, data.oci_core_instance.quorum_server.*.private_ip),
-      monitor = zipmap(data.oci_core_instance.monitoring_server.*.display_name, data.oci_core_instance.monitoring_server.*.private_ip),
+      storage = zipmap(data.oci_core_instance.storage_server.*.hostname_label, data.oci_core_instance.storage_server.*.private_ip),
+      compute = zipmap(data.oci_core_instance.client_node.*.hostname_label, data.oci_core_instance.client_node.*.private_ip),
+      quorum = zipmap(data.oci_core_instance.quorum_server.*.hostname_label, data.oci_core_instance.quorum_server.*.private_ip),
+      monitor = zipmap(data.oci_core_instance.monitoring_server.*.hostname_label, data.oci_core_instance.monitoring_server.*.private_ip),
       fs_name = var.fs_name,
       fs_type = var.fs_type,
       fs_ha = var.fs_ha,

@@ -1,0 +1,14 @@
+[Unit]
+Description=Prometheus daemon
+After=network.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart={{ exec_command }}
+Restart=on-failure
+RestartSec=5s
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target

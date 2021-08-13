@@ -369,7 +369,7 @@ variables:
 
   use_uhp:
     type: boolean
-    title: "XFS-0 : Build file system using Ultra High Performance Block Volume"
+    title: "XFS-0 : Build file system using Ultra High Performance Block Volume. (Only supported on Storage Servers with minimum 16 cores/OCPU)."
     description: "Select the checkbox, if you want to use Ultra High Performance Block Volume for one of your XFS file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
     required: false
     default: false

@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+        - 'localhost:9100'
+{% for host in groups['storage'] %}
+{% if inventory_hostname != host %}
+        - '{{ host }}:9100'
+{% endif %}
+{% endfor %}
+{% for host in groups['quorum'] %}
+{% if inventory_hostname != host %}
+        - '{{ host }}:9100'
+{% endif %}
+{% endfor %}
+{% for host in groups['storage'] %}
+{% if inventory_hostname != host %}
+        - '{{ host }}:9664'
+{% endif %}
+{% endfor %}
+{% for host in groups['quorum'] %}
+{% if inventory_hostname != host %}
+        - '{{ host }}:9664'
+{% endif %}
+{% endfor %}
+
+rule_files:
+  # - alert.rules.yml
+
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      # - alertmanager:9093
+

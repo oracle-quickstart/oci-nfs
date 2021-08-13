@@ -1,17 +1,21 @@
 {% for item in groups['bastion'] %}
 {% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
-{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} bastion 
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ hostvars[item]['ansible_hostname'] }} {{ short_name[0] }} bastion 
 {% endfor %}
 {% for item in groups['storage'] %}
 {% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
-{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} storage-node-{{ loop.index }} storage-node-{{ loop.index }}.local.vcn nfs-storage-node-{{ loop.index }} nfs-storage-node-{{ loop.index }}.local.vcn
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ hostvars[item]['ansible_hostname'] }} {{ short_name[0] }} storage-node-{{ loop.index }} storage-node-{{ loop.index }}.local.vcn nfs-storage-node-{{ loop.index }} nfs-storage-node-{{ loop.index }}.local.vcn
 {% endfor %}
 {% for item in groups['compute'] %}
 {% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
-{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} compute-node-{{ loop.index }} compute-node-{{ loop.index }}.local.vcn nfs-compute-node-{{ loop.index }} nfs-compute-node-{{ loop.index }}.local.vcn
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ hostvars[item]['ansible_hostname'] }} {{ short_name[0] }} compute-node-{{ loop.index }} compute-node-{{ loop.index }}.local.vcn nfs-compute-node-{{ loop.index }} nfs-compute-node-{{ loop.index }}.local.vcn
 {% endfor %}
 {% for item in groups['quorum'] %}
 {% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
-{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ short_name[0] }} quorum-node-{{ loop.index }} quorum-node-{{ loop.index }}.local.vcn
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ hostvars[item]['ansible_hostname'] }} {{ short_name[0] }} quorum-node-{{ loop.index }} quorum-node-{{ loop.index }}.local.vcn
+{% endfor %}
+{% for item in groups['monitor'] %}
+{% set short_name = hostvars[item]['ansible_fqdn'].split('.') %}
+{{ hostvars[item]['ansible_host'] }}  {{ hostvars[item]['ansible_fqdn'] }} {{ hostvars[item]['ansible_hostname'] }} {{ short_name[0] }} grafana-node-{{ loop.index }} grafana-node-{{ loop.index }}.local.vcn
 {% endfor %}
 
