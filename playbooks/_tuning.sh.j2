@@ -146,9 +146,9 @@ systemctl  status irqbalance
 interface=enp65s0f0
 interface=enp65s0f1
 # add below in for loop for all NICs
-rx_jumbo=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "RX Jumbo" | gawk -F":" '{ print $2 }'` ; echo $rx_jumbo
-rx=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "RX:" | gawk -F":" '{ print $2 }'` ; echo $rx
-tx=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "TX:" | gawk -F":" '{ print $2 }'` ; echo $tx
+rx_jumbo=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "RX Jumbo" | gawk -F":" '{ print $2 }' | xargs echo -n` ; echo $rx_jumbo
+rx=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "RX:" | gawk -F":" '{ print $2 }' | xargs echo -n` ; echo $rx
+tx=`/sbin/ethtool -g $interface | grep -A4 "Pre-set maximums" | grep "TX:" | gawk -F":" '{ print $2 }' | xargs echo -n` ; echo $tx
 
 sudo /sbin/ethtool -G $interface rx $rx tx $tx rx-jumbo $rx_jumbo
 sudo /sbin/ethtool -g $interface
