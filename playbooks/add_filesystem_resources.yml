@@ -1,0 +1,76 @@
+- name: set facts
+  ansible.builtin.set_fact:
+    filesystem_type: xfs
+    options: 'noatime,inode64,uquota,prjquota'
+    pcs_cfg: nfs_cfg
+    pcs_group_parameter: '--group nfsgroup'
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs0_lv_name }}"
+        vg_name: "{{ fs0_vg_name }}"
+        filesystem_name: "{{ fs0_name }}"
+        filesystem_device: "/dev/{{ vg_name }}/{{ lv_name }}"
+        filesystem_dir: "{{ fs0_dir }}"
+   
+    - name: Add filesystem resource
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ filesystem_name }} Filesystem  device={{ filesystem_device }} directory={{ filesystem_dir }} fstype={{ filesystem_type }} options={{ options }} {{ pcs_group_parameter }}
+    - name: Update resource timeout
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource update {{ filesystem_name }} op stop timeout=200s
+  when:
+    - inventory_hostname == NODE1
+    - use_uhp|bool == true
+      
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs1_lv_name }}"
+        vg_name: "{{ fs1_vg_name }}"
+        filesystem_name: "{{ fs1_name }}"
+        filesystem_device: "/dev/{{ vg_name }}/{{ lv_name }}"
+        filesystem_dir: "{{ fs1_dir }}"
+
+    - name: Add filesystem resource
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ filesystem_name }} Filesystem  device={{ filesystem_device }} directory={{ filesystem_dir }} fstype={{ filesystem_type }} options={{ options }} {{ pcs_group_parameter }}
+    - name: Update resource timeout
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource update {{ filesystem_name }} op stop timeout=200s
+  when:
+    - inventory_hostname == NODE1
+    - use_non_uhp_fs1|bool == true
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs2_lv_name }}"
+        vg_name: "{{ fs2_vg_name }}"
+        filesystem_name: "{{ fs2_name }}"
+        filesystem_device: "/dev/{{ vg_name }}/{{ lv_name }}"
+        filesystem_dir: "{{ fs1_dir }}"
+
+    - name: Add filesystem resource
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ filesystem_name }} Filesystem  device={{ filesystem_device }} directory={{ filesystem_dir }} fstype={{ filesystem_type }} options={{ options }} {{ pcs_group_parameter }}
+    - name: Update resource timeout
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource update {{ filesystem_name }} op stop timeout=200s
+  when:
+    - inventory_hostname == NODE1
+    - use_non_uhp_fs2|bool == true
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs3_lv_name }}"
+        vg_name: "{{ fs3_vg_name }}"
+        filesystem_name: "{{ fs3_name }}"
+        filesystem_device: "/dev/{{ vg_name }}/{{ lv_name }}"
+        filesystem_dir: "{{ fs3_dir }}"
+
+    - name: Add filesystem resource
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ filesystem_name }} Filesystem  device={{ filesystem_device }} directory={{ filesystem_dir }} fstype={{ filesystem_type }} options={{ options }} {{ pcs_group_parameter }}
+    - name: Update resource timeout
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource update {{ filesystem_name }} op stop timeout=200s
+  when:
+    - inventory_hostname == NODE1
+    - use_non_uhp_fs3|bool == true
+

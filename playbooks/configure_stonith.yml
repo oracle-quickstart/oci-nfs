@@ -1,0 +1,43 @@
+- name: set facts
+  ansible.builtin.set_fact:
+    timeout_watchdog: 20
+    timeout_msgwait: 40
+    warn_threshold_watchdog_timeout: 17
+
+- name: Shared storage fencing tool configuration
+  ansible.builtin.shell: sbd -d /dev/oracleoci/oraclevdb -4 "{{ timeout_msgwait }} -1 {{ timeout_watchdog }} -5 {{ warn_threshold_watchdog_timeout }}"  create
+  when: inventory_hostname == NODE1
+- ansible.builtin.shell: sbd -d /dev/oracleoci/oraclevdb dump 
+  when: inventory_hostname == NODE1
+
+- block:
+    - name: Create watchdog.conf
+      copy:
+        dest: /etc/modules-load.d/watchdog.conf
+        content: softdog
+
+    - name: restart systemd-modules-load
+      ansible.builtin.systemd:
+        name: systemd-modules-load
+        state: restarted
+
+    - name: Update SBD_DEVICE in /etc/sysconfig/sbd
+      ansible.builtin.lineinfile:
+        path: /etc/sysconfig/sbd
+        regexp: '^(.*)SBD_DEVICE(.*)$'
+        line: SBD_DEVICE="/dev/oracleoci/oraclevdb"
+        backrefs: yes
+
+    - name: Update SBD_OPTS in /etc/sysconfig/sbd
+      ansible.builtin.lineinfile:
+        path: /etc/sysconfig/sbd
+        regexp: '^(.*)SBD_OPTS(.*)$'
+        line: SBD_OPTS="-W"
+        backrefs: yes
+
+    - name: Enable sbd
+      ansible.builtin.systemd:
+        name: sbd
+#        state: started
+        enabled: yes
+  when: "'storage' in group_names"

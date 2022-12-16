@@ -1,0 +1,70 @@
+- block:
+    - name: Set fact
+      ansible.builtin.set_fact:
+        service_name: nfs-daemon
+        pcs_cfg: nfs_cfg
+        filesystem_dir: "{{ fs0_dir }}" #fs2 pending
+        pcs_group_parameter: '--group nfsgroup'
+        MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
+
+    - name: Get CIDR netmask
+      ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[1].subnetCidrBlock  ' | sed 's/"//g'| gawk -F"/" '{ print $2 }'
+      register: cidr_netmask_d
+      when: storage_server_dual_nics|bool == true
+
+    - name: Get CIDR netmask
+      ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[0].subnetCidrBlock  ' | sed 's/"//g'| gawk -F"/" '{ print $2 }'
+      register: cidr_netmask_s
+      when: storage_server_dual_nics|bool == false
+
+    - name: Configure NFS group resources
+      ansible.builtin.shell: "{{ item }}"
+      with_items:
+        - pcs -f /root/{{ pcs_cfg }} resource create {{ service_name }}  nfsserver nfs_shared_infodir={{ filesystem_dir }}/nfsinfo nfs_no_notify=true {{ pcs_group_parameter }}
+        - pcs -f /root/{{ pcs_cfg }} resource update {{ service_name }} op stop timeout=90s
+
+    - name:
+      ansible.builtin.shell: "{{ item }}"
+      with_items:  
+        - pcs -f /root/{{ pcs_cfg }} resource create {{ ipaddr2_vip_name }} ocf:heartbeat:IPaddr2 ip={{ nfs_server_ip }} cidr_netmask={{ cidr_netmask_d.stdout }} op monitor interval=20s {{ pcs_group_parameter }} 
+        - pcs -f /root/{{ pcs_cfg }} alert create id=ip_move description="Move IP address using oci-cli" path=/var/lib/pacemaker/ip_move.sh
+        - pcs -f /root/{{ pcs_cfg }} alert recipient add ip_move id=logfile_ip_move value=/var/log/pacemaker_ip_move.log
+      when:
+        - cidr_netmask_d.stdout is defined
+        - cidr_netmask_d.stdout != ""
+
+    - name:
+      ansible.builtin.shell: "{{ item }}"
+      with_items:
+        - pcs -f /root/{{ pcs_cfg }} resource create {{ ipaddr2_vip_name }} ocf:heartbeat:IPaddr2 ip={{ nfs_server_ip }} cidr_netmask={{ cidr_netmask_s.stdout }} op monitor interval=20s {{ pcs_group_parameter }}
+        - pcs -f /root/{{ pcs_cfg }} alert create id=ip_move description="Move IP address using oci-cli" path=/var/lib/pacemaker/ip_move.sh
+        - pcs -f /root/{{ pcs_cfg }} alert recipient add ip_move id=logfile_ip_move value=/var/log/pacemaker_ip_move.log
+      when:
+        - cidr_netmask_s.stdout is defined
+        - cidr_netmask_s.stdout != ""
+   
+    - name: Update cluster configuration to all nodes
+      ansible.builtin.shell: pcs cluster cib-push /root/{{ pcs_cfg }}
+
+    - name: wait 25 seconds for cluster update
+      ansible.builtin.pause:
+        seconds: 25
+
+    - name: Stop cluster
+      ansible.builtin.shell: pcs cluster stop --all
+
+    - name: wait 5 seconds
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Update quorum
+      ansible.builtin.shell: pcs quorum update wait_for_all=0
+
+    - name: wait 25 seconds 
+      ansible.builtin.pause:
+        seconds: 25
+
+    - name: Start cluster
+      ansible.builtin.shell: pcs cluster start --all
+
+  when: inventory_hostname == NODE1

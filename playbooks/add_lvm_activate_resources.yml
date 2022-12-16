@@ -1,0 +1,54 @@
+- name: Set facts
+  ansible.builtin.set_fact:
+    pcs_cfg: nfs_cfg
+    pcs_group_parameter: '--group nfsgroup'
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs0_lv_name }}"
+        vg_name: "{{ fs0_vg_name }}"
+
+    - name: Create cluster resource fs0
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ lv_name }} ocf:heartbeat:LVM-activate vgname={{ vg_name }} vg_access_mode=system_id {{ pcs_group_parameter }}
+  when:
+    - inventory_hostname == NODE1
+    - use_uhp|bool == true
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs1_lv_name }}"
+        vg_name: "{{ fs1_vg_name }}"
+
+    - name: Create cluster resource fs1
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ lv_name }} ocf:heartbeat:LVM-activate vgname={{ vg_name }} vg_access_mode=system_id {{ pcs_group_parameter }}
+  when:
+    - inventory_hostname == NODE1
+    - use_non_uhp_fs1|bool == true
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs2_lv_name }}"
+        vg_name: "{{ fs2_vg_name }}"
+
+    - name: Create cluster resource fs2
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ lv_name }} ocf:heartbeat:LVM-activate vgname={{ vg_name }} vg_access_mode=system_id {{ pcs_group_parameter }}
+  when:
+    - inventory_hostname == NODE1
+    - use_non_uhp_fs2|bool == true
+
+- block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        lv_name: "{{ fs3_lv_name }}"
+        vg_name: "{{ fs3_vg_name }}"
+
+    - name: Create cluster resource fs2
+      ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource create {{ lv_name }} ocf:heartbeat:LVM-activate vgname={{ vg_name }} vg_access_mode=system_id {{ pcs_group_parameter }}
+  when:
+    - inventory_hostname == NODE1
+    - use_non_uhp_fs3|bool == true
+
+      

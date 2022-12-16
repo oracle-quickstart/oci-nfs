@@ -1,0 +1,13 @@
+  - name: set facts
+    ansible.builtin.set_fact:
+      NODE1: "{{ storage_server_hostname_prefix }}1"
+      NODE2: "{{ storage_server_hostname_prefix }}2"
+      ha_config_dir: /home/opc/ha_config  
+
+  - block:
+      - name: Update corosync.conf for "{{ NODE1 }}"
+        replace:
+          path: /etc/corosync/corosync.conf
+          regexp: 'NODE1'
+          replace: "{{ NODE1 }}"
+    when: "'server' in inventory_hostname"

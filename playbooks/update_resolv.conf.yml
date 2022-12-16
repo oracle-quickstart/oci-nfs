@@ -1,0 +1,12 @@
+- name: Update resolv.conf and ensure DNS lookups work from one private subnet to another subnet
+  lineinfile: 
+    dest: /etc/resolv.conf
+    line: '{{ item }}'
+  with_items:
+    - "search {{ storage_subnet_domain_name }} {{ filesystem_subnet_domain_name }} {{ vcn_domain_name }}"
+    - 'nameserver 169.254.169.254'
+
+- name: Ensure resolv.conf is immutable.
+  file:
+    path: /etc/resolv.conf
+    attr: i

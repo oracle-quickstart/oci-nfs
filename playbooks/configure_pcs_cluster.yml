@@ -1,0 +1,55 @@
+- name: set facts
+  ansible.builtin.set_fact:
+    pcs_cfg: nfs_cfg 
+    QUORUM_NODE: "{{ quorum_server_hostname }}"
+    power_timeout: 45
+
+- block:
+    - name: Start cluster
+      ansible.builtin.shell: pcs cluster start
+      register: cluster_stat
+
+    - name: Stop cluster
+      ansible.builtin.shell: pcs cluster stop --force
+      when: cluster_stat.rc != 0
+
+    - name: wait 15 seconds
+      ansible.builtin.pause:
+        seconds: 15
+      when: cluster_stat.rc != 0
+  
+    - name: Start cluster
+      ansible.builtin.shell: pcs cluster start
+      when: cluster_stat.rc != 0
+
+    - name: Check cluster status
+      ansible.builtin.shell: pcs status
+      register: pcs_status
+
+    - debug:
+        var: pcs_status.stdout
+  
+    - name: Update cluster configuration
+      ansible.builtin.shell: pcs cluster cib /root/{{ pcs_cfg }}
+
+    - name: Quorum node changes
+      ansible.builtin.shell: "{{ item }}"
+      with_items:
+        - pcs -f /root/{{ pcs_cfg }} quorum device add model net host={{ QUORUM_NODE }} algorithm=ffsplit
+        - pcs -f /root/{{ pcs_cfg }} quorum config
+        - pcs -f /root/{{ pcs_cfg }} quorum status
+        - pcs -f /root/{{ pcs_cfg }} quorum device status
+        - pcs -f /root/{{ pcs_cfg }} property set stonith-enabled=true
+        - pcs -f /root/{{ pcs_cfg }} property set no-quorum-policy=stop
+        - pcs -f /root/{{ pcs_cfg }} resource defaults migration-threshold=3
+        - pcs -f /root/{{ pcs_cfg }} resource defaults resource-stickiness=0
+        - pcs -f /root/{{ pcs_cfg }} resource defaults failure-timeout=15m
+        - pcs -f /root/{{ pcs_cfg }} stonith create sbd_fencing_{{ NODE1 }} fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list={{ NODE1 }} pcmk_delay_base=0 power_timeout={{ power_timeout }} op monitor timeout=50s
+        - pcs -f /root/{{ pcs_cfg }} stonith create sbd_fencing_{{ NODE2 }} fence_sbd devices=/dev/oracleoci/oraclevdb pcmk_host_list={{ NODE2 }} pcmk_delay_base=5 power_timeout={{ power_timeout }} op monitor timeout=50s
+        - pcs -f /root/{{ pcs_cfg }} constraint location sbd_fencing_{{ NODE1 }} avoids {{ NODE1 }} 
+        - pcs -f /root/{{ pcs_cfg }} constraint location sbd_fencing_{{ NODE2 }} avoids {{ NODE2 }}
+
+
+
+
+  when: "'storage' in group_names"

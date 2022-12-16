@@ -1,5 +1,3 @@
-
-
 - hosts: quorum
   become: true
   pre_tasks:
@@ -19,12 +17,8 @@
       enabled: no
     async: 30
     poll: 0
-  - name: create install_quorum_ha_config.sh file
-    template:
-      src: _install_quorum_ha_config.sh.j2
-      dest: /home/opc/install_quorum_ha_config.sh
-  - name: execute install_quorum_ha_config.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_quorum_ha_config.sh"
+  - name: Install ans configure corosync-qnetd
+    include: install_quorum_ha_config.yml
 
 - hosts: storage
   become: true
@@ -52,12 +46,8 @@
         - nfs-utils
         - nfs4-acl-tools
       lock_timeout: 180
-  - name: create configure_vnic.sh file
-    template:
-      src: _configure_vnic.sh.j2
-      dest: /home/opc/configure_vnic.sh
-  - name: execute configure_vnic.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/configure_vnic.sh"
+  - name: execute configure_vnic
+    include: configure_vnic.yml
   - name: update lvm.conf
     command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
     
@@ -69,13 +59,8 @@
       state: present
       create: no
       
-  - name: create nfs_install_storage.sh file
-    template:
-      src: _nfs_install_storage.sh.j2
-      dest: /home/opc/nfs_install_storage.sh
-  - name: execute nfs_install_storage.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/nfs_install_storage.sh"
-    run_once: true
+  - name: execute nfs_install_storage
+    include: install_storage.yml
   - name: create /home/opc/ha_config directory
     become: true
     file:
@@ -130,14 +115,6 @@
       src: _pcmk.j2
       dest: /home/opc/ha_config/pcmk
     when: fs_ha|bool
-  - name: create install_ha_rpms.sh file
-    template:
-      src: _install_ha_rpms.sh.j2
-      dest: /home/opc/install_ha_rpms.sh
-    when: fs_ha|bool
-  - name: execute install_ha_rpms.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_ha_rpms.sh"
-    when: fs_ha|bool
 
   # only for VMs - since they come up too quickly before stonith fencing completes.
   - name: add 30s delay for VM instances for corosync service
@@ -157,13 +134,19 @@
 #  - name: execute tuning.sh
 #    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning.sh"
 
-  - name: create install_ha_config.sh file
-    template:
-      src: _install_ha_config.sh.j2
-      dest: /home/opc/install_ha_config.sh
-    when: fs_ha|bool
-  - name: execute install_ha_config.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_ha_config.sh"
+  - name: execute install_ha_config
+    include: install_quorum_ha_config.yml
+  - include: install_quorum_ha_config.yml
+  - include: configure_vnic.yml
+  - include: install_storage.yml
+  - include: install_ha_config.yml
+  - include: vip_move.yml
+  - include: configure_nfs_server.yml
+  - include: configure_stonith.yml
+  - include: configure_pcs_cluster.yml
+  - include: add_lvm_activate_resources.yml
+  - include: add_filesystem_resources.yml
+  - include: configure_nfsgroup_nfs_resources.yml
     when: fs_ha|bool
 
 

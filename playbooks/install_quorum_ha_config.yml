@@ -1,0 +1,49 @@
+  - name: Install the latest version of pcs cluster packages
+    ansible.builtin.yum:
+      name:
+        - pcs
+        - corosync-qnetd 
+      state: latest
+
+  - name: Start service pcsd, if not started
+    ansible.builtin.service:
+      name: pcsd
+      state: started
+      enabled: yes
+
+  - name: Collect quorum device status
+    ansible.builtin.command: pcs qdevice status net --full
+    register: qdevice_status
+    when: "'quorum' in group_names"
+
+  - name: Check quorum device status
+    ansible.builtin.debug:
+      var: qdevice_status.stdout
+    when: "'quorum' in group_names"
+
+  - name: Configure password for hacluster user
+    user:
+      name: hacluster
+      password: "{{ hacluster_user_password | password_hash('sha512') }}"
+
+  - name: Authenticate the cluster nodes
+    ansible.builtin.command: pcs cluster auth -u hacluster -p "{{ hacluster_user_password }}" "{{ inventory_hostname }}"
+    register: pcs_auth
+
+  - name: Check quorum device status
+    ansible.builtin.debug:
+      var: pcs_auth.stdout
+    failed_when: 
+      - pcs_auth != 0
+      - "'Authorized' not in pcs_auth.stdout"
+
+  - name: Create corosync-qnetd-monitor.sh
+    copy:
+      src: corosync-qnetd-monitor.sh
+      dest: "/root/corosync-qnetd-monitor.sh"
+      mode: '0755'
+
+  - name: Create cron job to check corosync-qnetd
+    ansible.builtin.cron:
+      name: "check corosync-qnetd"
+      job: "/root/corosync-qnetd-monitor.sh >> /var/spool/cron/root"
