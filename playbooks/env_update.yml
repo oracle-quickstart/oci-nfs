@@ -1,0 +1,117 @@
+- block: 
+    - set_fact:
+        MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
+     
+    - name: Get Node1 vnicId, dual_nic
+      ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[1].vnicId' | sed 's/"//g'
+      register: node1_vnic_d
+      when: storage_server_dual_nics|bool == true
+    
+    - name: Get Node1 vnicId, single_nic
+      ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[0].vnicId' | sed 's/"//g'
+      register: node1_vnic_s
+      when: 
+        - storage_server_dual_nics|bool == false
+        - node1_vnic_d is not defined
+
+    - set_fact:
+        node1vnic: "{{ node1_vnic_d.stdout }}"
+      when: node1_vnic_d is defined
+
+    - set_fact:
+        node1vnic: "{{ node1_vnic_s.stdout }}"
+      when: 
+        - node1_vnic_d is not defined
+        - node1_vnic_d.stdout == ""
+  when: inventory_hostname == NODE1
+
+- add_host:
+    name: "{{ NODE2 }}"
+    node1vnic: "{{ node1vnic }}"
+
+- block:
+    - set_fact:
+        MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
+
+    - name: Get Node2 vnicId, dual_nic
+      ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[1].vnicId' | sed 's/"//g'
+      register: node2_vnic_d
+      when: storage_server_dual_nics|bool == true
+
+    - name: Get Node2 vnicId, single nic
+      ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[0].vnicId' | sed 's/"//g'
+      register: node2_vnic_s
+      when: 
+        - storage_server_dual_nics|bool == false
+        - node2_vnic_d is not defined
+    
+    - set_fact:
+        node2vnic: "{{ node2_vnic_d.stdout }}"
+      when: node1_vnic_d is defined
+
+    - set_fact:
+        node2vnic: "{{ node2_vnic_s.stdout }}"
+      when:
+        - node2_vnic_d is not defined
+        - node2_vnic_d.stdout == ""
+    - name: Write node2vnic
+      copy:
+        dest: /tmp/node2vnic
+        content:
+          node2vnic={{ node2vnic}}
+  when: inventory_hostname == NODE2
+
+- name: fetch variable from "{{ NODE2 }}"
+  fetch:
+    src: /tmp/node2vnic
+    dest: /tmp/
+    flat: yes
+  when: inventory_hostname == NODE2
+
+- copy:
+    src: /tmp/node2vnic
+    dest: /tmp/node2vnic
+
+- set_fact:
+    NODE1_IP: "{{ hostvars[NODE1]['ansible_default_ipv4']['address'] }}"
+    NODE2_IP: "{{ hostvars[NODE2]['ansible_default_ipv4']['address'] }}"
+    NODE1_FQDN: "{{ hostvars[NODE1]['ansible_fqdn'] }}"
+    NODE2_FQDN: "{{ hostvars[NODE2]['ansible_fqdn'] }}"
+
+- name: Creating enviornment variables
+  copy:
+    dest: "/root/env_variables.sh"
+    content: |
+      LOCAL_NODE={{ ansible_hostname }}
+      LOCAL_NODE_IP={{ ansible_default_ipv4.address }}
+      NODE1={{ NODE1 }}
+      NODE2={{ NODE2 }}
+      NODE1_IP={{ NODE1_IP }}
+      NODE2_IP={{ NODE2_IP }}
+      NODE1_FQDN={{ NODE1_FQDN }}
+      NODE2_FQDN={{ NODE2_FQDN }}
+      QUORUM_NODE={{ quorum_server_hostname }}
+      TARGET_VIP={{ nfs_server_ip }}
+      node1vnic={{ node1vnic }}
+
+- lineinfile: path=/root/env_variables.sh line={{lookup('file', '/tmp/node2vnic')}} create=yes state=present
+
+- name: Get NODE1_VNIC2_IP
+  ansible.builtin.shell: nslookup {{ storage_server_filesystem_vnic_hostname_prefix }}1 | grep Address | grep -v '#' | gawk '{print $2}'
+  register: NODE1_VNIC2_IP
+  when: storage_server_dual_nics|bool == true
+
+- name: Get NODE2_VNIC2_IP
+  ansible.builtin.shell: nslookup {{ storage_server_filesystem_vnic_hostname_prefix }}2 | grep Address | grep -v '#' | gawk '{print $2}'
+  register: NODE2_VNIC2_IP
+  when: storage_server_dual_nics|bool == true
+
+- lineinfile: 
+    path: /root/env_variables.sh
+    line: '{{ item }}'
+  with_items:
+    - NODE1_VNIC2_HOSTNAME="{{ storage_server_filesystem_vnic_hostname_prefix }}1"
+    - NODE2_VNIC2_HOSTNAME="{{ storage_server_filesystem_vnic_hostname_prefix }}2"
+    - NODE1_VNIC2_IP="{{ NODE1_VNIC2_IP.stdout }}"
+    - NODE2_VNIC2_IP="{{ NODE2_VNIC2_IP.stdout }}"      
+  when: storage_server_dual_nics|bool == true
