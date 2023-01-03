@@ -206,7 +206,7 @@
         - /root/bin/oci-cli-scripts
       state: absent
 
-  - name: Create ddirectory /home/oracle-cli/.oci
+  - name: Create directory /home/oracle-cli/.oci
     file: 
       path: /home/oracle-cli/.oci
       state: directory

@@ -54,7 +54,7 @@
     dest: "/bin/go"
     state: link
 
-- name:  Get mockgen
+- name: Get mockgen
   ansible.builtin.shell: "{{ item }}"
   with_items:
     - source /root/.bashrc

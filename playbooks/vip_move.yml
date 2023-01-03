@@ -29,7 +29,7 @@
     group: haclient
     mode: 700
 
-- name:
+- name: Get instance principal
   ansible.builtin.raw: /home/oracle-cli/bin/oci os ns get --auth instance_principal
 
 - name: Copy secip.sh
