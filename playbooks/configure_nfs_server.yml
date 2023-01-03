@@ -14,7 +14,6 @@
   delegate_to: localhost
   run_once: true
 
-
 - name: exportfs_client_spec_1_network
   ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_1_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
   register: exportfs_client_spec_1_network
@@ -25,7 +24,6 @@
   delegate_to: localhost
   run_once: true
 
-
 - name: Calculate exportfs_client_spec_2_netmask
   ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_2_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
   register: exportfs_client_spec_2_netmask
@@ -35,7 +33,6 @@
 - debug: msg={{ exportfs_client_spec_2_netmask.stdout }}
   delegate_to: localhost
   run_once: true
-
 
 - name: exportfs_client_spec_2_network
   ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_2_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
@@ -54,7 +51,6 @@
   delegate_to: localhost
   run_once: true
 
-
 - block: 
     - name: set fact exportfs_client_spec_3_cidr_block
       ansible.builtin.set_fact:
@@ -65,7 +61,6 @@
       register: exportfs_client_spec_3_netmask
 
     - debug: msg={{ exportfs_client_spec_3_netmask.stdout }}
-
 
     - name: exportfs_client_spec_2_network
       ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_3_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
@@ -80,7 +75,6 @@
   delegate_to: localhost
   run_once: true
   when: storage_server_dual_nics|bool == true
-
 
 - block:
     - name: set fact for UHP

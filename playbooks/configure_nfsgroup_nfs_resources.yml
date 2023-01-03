@@ -3,7 +3,7 @@
       ansible.builtin.set_fact:
         service_name: nfs-daemon
         pcs_cfg: nfs_cfg
-        filesystem_dir: "{{ fs0_dir }}" #fs2 pending
+        filesystem_dir: "{{ fs0_dir }}" 
         pcs_group_parameter: '--group nfsgroup'
         MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
 
