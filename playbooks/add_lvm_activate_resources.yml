@@ -50,5 +50,3 @@
   when:
     - inventory_hostname == NODE1
     - use_non_uhp_fs3|bool == true
-
-      

@@ -1,67 +1,65 @@
-- block:
-    - name: Create oracle-cli
-      file:
-        path: /home/oracle-cli/
-        state: directory
-        owner: root
-        mode: 0755
+- name: Create directory oracle-cli
+  file:
+    path: /home/oracle-cli/
+    state: directory
+    owner: root
+    mode: 0755
 
-    - name: Download install.sh
-      ansible.builtin.get_url:
-        url: https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
-        dest: /home/oracle-cli/
-        mode: '0755'
+- name: Download install.sh
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+    dest: /home/oracle-cli/
+    mode: '0755'
 
-    - name: Run install.sh
-      ansible.builtin.shell: /home/oracle-cli/install.sh --accept-all-defaults --exec-dir /home/oracle-cli/bin/ --install-dir /home/oracle-cli/lib/
+- name: Run install.sh
+  ansible.builtin.shell: /home/oracle-cli/install.sh --accept-all-defaults --exec-dir /home/oracle-cli/bin/ --install-dir /home/oracle-cli/lib/
 
-    - name: Remove install.sh
-      file:
-        path:
-          - /home/oracle-cli/install.sh
-          - /root/bin/oci-cli-scripts
-        state: absent
+- name: Remove install.sh
+  file:
+    path:
+      - /home/oracle-cli/install.sh
+      - /root/bin/oci-cli-scripts
+    state: absent
 
-    - name: Create dir
-      file:
-        path: /home/oracle-cli/.oci
-        state: directory
-        owner: hacluster
-        group: haclient
-        mode: 700
+- name: Create directory .oci
+  file:
+    path: /home/oracle-cli/.oci
+    state: directory
+    owner: hacluster
+    group: haclient
+    mode: 700
 
-    - name:
-      ansible.builtin.raw: /home/oracle-cli/bin/oci os ns get --auth instance_principal
+- name:
+  ansible.builtin.raw: /home/oracle-cli/bin/oci os ns get --auth instance_principal
 
-    - name: Copy secip.sh
-      ansible.builtin.copy:
-        src: "{{ ha_config_dir }}/move_secip.sh"
-        dest: /home/oracle-cli/move_secip.sh
-        remote_src: yes
-        mode: 700
-        owner: hacluster
-        group: haclient
+- name: Copy secip.sh
+  ansible.builtin.copy:
+    src: "{{ ha_config_dir }}/move_secip.sh"
+    dest: /home/oracle-cli/move_secip.sh
+    remote_src: yes
+    mode: 700
+    owner: hacluster
+    group: haclient
 
-    - name: Copy env_variables.sh
-      ansible.builtin.copy:
-        src: /root/env_variables.sh
-        dest: /home/oracle-cli/
-        remote_src: yes
-        owner: hacluster
-        group: haclient
+- name: Copy env_variables.sh
+  ansible.builtin.copy:
+    src: /root/env_variables.sh
+    dest: /home/oracle-cli/
+    remote_src: yes
+    owner: hacluster
+    group: haclient
 
-    - name: Copy ip_move.sh
-      ansible.builtin.copy:
-        src: "{{ ha_config_dir }}/ip_move.sh"
-        dest: /var/lib/pacemaker/ip_move.sh
-        remote_src: yes
-        owner: root
-        mode: 0755
+- name: Copy ip_move.sh
+  ansible.builtin.copy:
+    src: "{{ ha_config_dir }}/ip_move.sh"
+    dest: /var/lib/pacemaker/ip_move.sh
+    remote_src: yes
+    owner: root
+    mode: 0755
 
-    - name:
-      ansible.builtin.file:
-        path: /var/log/pacemaker_ip_move.log
-        state: touch
-        owner: hacluster
-        group: haclient
-  when: "'server' in inventory_hostname"
+- name: Create file pacemaker_ip_move.log
+  ansible.builtin.file:
+    path: /var/log/pacemaker_ip_move.log
+    state: touch
+    owner: hacluster
+    group: haclient

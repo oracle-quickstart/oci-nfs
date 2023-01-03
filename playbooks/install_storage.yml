@@ -1,3 +1,7 @@
+- name: Set facts
+  ansible.builtin.shell: ls /dev/* | grep nvme | grep n1 | wc -l
+  register: nvme_cnt
+
 - name: Set nfs thread count 
   ansible.builtin.lineinfile:
     path: /etc/nfs.conf
@@ -5,17 +9,10 @@
     line: threads=16
   when: 
     - ansible_facts['processor_cores']*ansible_facts['processor_count'] > 16
-    - "'storage' in group_names"
 
 - name: Remove strings from block_size if present
   ansible.builtin.set_fact:
     lvm_stripe_size: "{{ block_size | replace('kb', '') | replace('KB', '') | replace('k', '') | replace('K', '') }}"
- 
-- name: Set fs0 name
-  ansible.builtin.set_fact:
-    mount_point: /mnt/{{ fs0_name }}
-    disk_name: disk0
-  when: use_uhp|bool == true
 
 #find_UHP_block_volume
 - name: 
@@ -24,33 +21,31 @@
       ansible.builtin.wait_for:
         path: /dev/mapper/mpatha
 
-    - name: set blk_lst and blk_cnt when fs_ha is and use_uhp is defined
-      shell: ls /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | grep "vdc$" | sort
+    - name: Set blk_lst and blk_cnt when fs_ha and use_uhp is defined
+      shell: ls /dev/oracleoci/oraclevd* | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | grep "vdc$" | sort
       register: blk_lst
 
-    - shell: ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | grep "vdc$" | wc -l
+    - shell: ls /dev/oracleoci/oraclevd* | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$" | grep "vdc$" | wc -l
       register: blk_cnt
 
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
   when: 
-    - "'storage' in group_names"
     - use_uhp|bool == true
     - fs_ha|bool == true
 
 - name: 
   block:
-    - name: set blk_lst and blk_cnt when fs_ha not defined
-      shell: ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme |  grep "vdb$" | sort
-      register: blk_lst_uhp
+    - name: Set blk_lst and blk_cnt when fs_ha is not defined and use_uhp is defined
+      shell: ls /dev/oracleoci/oraclevd* | grep -v vda[0-9] | grep -v vda$ | grep -v nvme |  grep "vdb$" | sort
+      register: blk_lst
 
-    - shell: ls  /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme |  grep "vdb$" | wc -l
-      register: blk_cnt_uhp
+    - shell: ls /dev/oracleoci/oraclevd* | grep -v vda[0-9] | grep -v vda$ | grep -v nvme |  grep "vdb$" | wc -l
+      register: blk_cnt
 
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
   when:
-    - "'storage' in group_names"
     - use_uhp|bool == true
     - fs_ha|bool == false
 
@@ -58,11 +53,10 @@
 - name: Waiting for block-attach of Block volumes to complete
   ansible.builtin.wait_for:
     path: /tmp/block-attach.complete
-  when: "'storage' in group_names"
 
 - name:
   block:
-    - name: set blk_lst and blk_cnt when fs_ha is not defined and use_uhp is defined
+    - name: Set blk_lst and blk_cnt when fs_ha is defined and use_uhp is not defined
       shell: ls /dev/oracleoci/oraclevd* | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$"
       register: blk_lst
 
@@ -71,17 +65,13 @@
 
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
-    - set_fact: 
-        blk_lst_reg: "{{ blk_lst.stdout }}"
-        blk_cnt_reg: "{{ blk_cnt.stdout }}"
   when:
-     - "'storage' in group_names"
      - fs_ha|bool == true
      - use_uhp|bool == false
 
 - name:
   block:
-    - name: set blk_lst and blk_cnt when fs_ha and use_uhp is not defined
+    - name: Set blk_lst and blk_cnt when fs_ha and use_uhp is not defined
       shell: ls /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | sort
       register: blk_lst
 
@@ -90,10 +80,20 @@
 
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
-    - set_fact:
-        blk_lst_reg: "{{ blk_lst.stdout }}"
-        blk_cnt_reg: "{{ blk_cnt.stdout }}"
   when:
-     - "'storage' in group_names"
      - fs_ha|bool == false
      - use_uhp|bool == false
+
+- name:
+  block:
+    - name: Find nvme disks
+      shell: ls /dev/* | grep nvme | grep n1 | sort
+      register: nvme_lst
+
+    - shell: ls /dev/* | grep nvme | grep n1 | wc -l
+      register: nvme_cnt
+
+    - name: Process disks
+      ansible.builtin.include_tasks: process_disks.yml
+  when:
+     - nvme_cnt | int > 0

@@ -828,7 +828,7 @@ variables:
     title: "Private Virtual IP for HA (Highly Availability)"
     description: "Floating Virtual IP which gets assigned to an active node in an active/passive HA cluster. NFS clients will use this IP to connect to NFS cluster. If you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers, then provide an unused private IP from the 'secondary subnet'.  For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance.   If you plan to use VM .x or BM.HPC2.36 compute shapes for NFS file servers, then provide an unused private IP from 'primary subnet' to be used to install NFS servers. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
     required: true
-    default: "10.0.3.200"
+    default: "10.0.6.200"
     visible:
       and:
         - ${fs_ha}

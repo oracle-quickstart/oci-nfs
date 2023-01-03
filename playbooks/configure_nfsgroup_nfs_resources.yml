@@ -3,7 +3,7 @@
       ansible.builtin.set_fact:
         service_name: nfs-daemon
         pcs_cfg: nfs_cfg
-        filesystem_dir: "{{ fs0_dir }}" 
+        filesystem_dir: "{{ fs0_dir }}"
         pcs_group_parameter: '--group nfsgroup'
         MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
 
@@ -23,8 +23,7 @@
         - pcs -f /root/{{ pcs_cfg }} resource create {{ service_name }}  nfsserver nfs_shared_infodir={{ filesystem_dir }}/nfsinfo nfs_no_notify=true {{ pcs_group_parameter }}
         - pcs -f /root/{{ pcs_cfg }} resource update {{ service_name }} op stop timeout=90s
 
-    - name:
-      ansible.builtin.shell: "{{ item }}"
+    - ansible.builtin.shell: "{{ item }}"
       with_items:  
         - pcs -f /root/{{ pcs_cfg }} resource create {{ ipaddr2_vip_name }} ocf:heartbeat:IPaddr2 ip={{ nfs_server_ip }} cidr_netmask={{ cidr_netmask_d.stdout }} op monitor interval=20s {{ pcs_group_parameter }} 
         - pcs -f /root/{{ pcs_cfg }} alert create id=ip_move description="Move IP address using oci-cli" path=/var/lib/pacemaker/ip_move.sh
@@ -33,8 +32,7 @@
         - cidr_netmask_d.stdout is defined
         - cidr_netmask_d.stdout != ""
 
-    - name:
-      ansible.builtin.shell: "{{ item }}"
+    - ansible.builtin.shell: "{{ item }}"
       with_items:
         - pcs -f /root/{{ pcs_cfg }} resource create {{ ipaddr2_vip_name }} ocf:heartbeat:IPaddr2 ip={{ nfs_server_ip }} cidr_netmask={{ cidr_netmask_s.stdout }} op monitor interval=20s {{ pcs_group_parameter }}
         - pcs -f /root/{{ pcs_cfg }} alert create id=ip_move description="Move IP address using oci-cli" path=/var/lib/pacemaker/ip_move.sh
@@ -53,18 +51,20 @@
     - name: Stop cluster
       ansible.builtin.shell: pcs cluster stop --all
 
-    - name: wait 5 seconds
+    - name: Wait 5 seconds
       ansible.builtin.pause:
         seconds: 5
 
     - name: Update quorum
       ansible.builtin.shell: pcs quorum update wait_for_all=0
 
-    - name: wait 25 seconds 
+    - name: Wait 25 seconds 
       ansible.builtin.pause:
         seconds: 25
 
     - name: Start cluster
       ansible.builtin.shell: pcs cluster start --all
 
-  when: inventory_hostname == NODE1
+    - name: Enable cluster
+      ansible.builtin.shell: pcs cluster enable --all 
+  when: ansible_hostname == NODE1

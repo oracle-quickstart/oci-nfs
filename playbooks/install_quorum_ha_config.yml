@@ -11,24 +11,30 @@
       state: started
       enabled: yes
 
+  - name: Initilalize qdevice
+    ansible.builtin.command: pcs qdevice setup model net --enable --start
+
   - name: Collect quorum device status
     ansible.builtin.command: pcs qdevice status net --full
     register: qdevice_status
     when: "'quorum' in group_names"
+    ignore_errors: true
 
   - name: Check quorum device status
     ansible.builtin.debug:
       var: qdevice_status.stdout
     when: "'quorum' in group_names"
+    ignore_errors: true
 
   - name: Configure password for hacluster user
     user:
       name: hacluster
-      password: "{{ hacluster_user_password | password_hash('sha512') }}"
+      password: "{{ hacluster_user_password | password_hash }}"
 
   - name: Authenticate the cluster nodes
-    ansible.builtin.command: pcs cluster auth -u hacluster -p "{{ hacluster_user_password }}" "{{ inventory_hostname }}"
+    ansible.builtin.command: pcs cluster auth -u hacluster -p "{{ hacluster_user_password }}" "{{ ansible_hostname }}"
     register: pcs_auth
+    run_once: true
 
   - name: Check quorum device status
     ansible.builtin.debug:
@@ -46,4 +52,4 @@
   - name: Create cron job to check corosync-qnetd
     ansible.builtin.cron:
       name: "check corosync-qnetd"
-      job: "/root/corosync-qnetd-monitor.sh >> /var/spool/cron/root"
+      job: "/root/corosync-qnetd-monitor.sh"

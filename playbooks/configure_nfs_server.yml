@@ -10,37 +10,21 @@
   delegate_to: localhost
   run_once: true
 
-- debug: msg={{ exportfs_client_spec_1_netmask.stdout }}
-  delegate_to: localhost
-  run_once: true
-
-- name: exportfs_client_spec_1_network
+- name: Get exportfs_client_spec_1_network
   ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_1_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
   register: exportfs_client_spec_1_network
   delegate_to: localhost
   run_once: true
 
-- debug: msg={{ exportfs_client_spec_1_network.stdout }}
-  delegate_to: localhost
-  run_once: true
-
-- name: Calculate exportfs_client_spec_2_netmask
+- name: Get exportfs_client_spec_2_netmask
   ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_2_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
   register: exportfs_client_spec_2_netmask
   delegate_to: localhost
   run_once: true
 
-- debug: msg={{ exportfs_client_spec_2_netmask.stdout }}
-  delegate_to: localhost
-  run_once: true
-
-- name: exportfs_client_spec_2_network
+- name: Get exportfs_client_spec_2_network
   ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_2_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
   register: exportfs_client_spec_2_network
-  delegate_to: localhost
-  run_once: true
-
-- debug: msg={{ exportfs_client_spec_2_network.stdout }}
   delegate_to: localhost
   run_once: true
 
@@ -52,26 +36,21 @@
   run_once: true
 
 - block: 
-    - name: set fact exportfs_client_spec_3_cidr_block
+    - name: Set fact exportfs_client_spec_3_cidr_block
       ansible.builtin.set_fact:
         exportfs_client_spec_3_cidr_block: "{{ private_fs_subnet_cidr_block }}"
 
-    - name: Calculate exportfs_client_spec_3_netmask
+    - name: Get exportfs_client_spec_3_netmask
       ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_3_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
       register: exportfs_client_spec_3_netmask
-
-    - debug: msg={{ exportfs_client_spec_3_netmask.stdout }}
 
     - name: exportfs_client_spec_2_network
       ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_3_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
       register: exportfs_client_spec_3_network
 
-    - debug: msg={{ exportfs_client_spec_3_network.stdout }}
-
     - name: Set fact exportfs_client_spec_1 and exportfs_client_spec_3
       ansible.builtin.set_fact:
         exportfs_client_spec_3: "{{ exportfs_client_spec_3_network.stdout }}/{{ exportfs_client_spec_3_netmask.stdout }}"
-  
   delegate_to: localhost
   run_once: true
   when: storage_server_dual_nics|bool == true
@@ -84,21 +63,20 @@
     - name: Update /etc/exports line1
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
 
     - name: Update /etc/exports line2
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
 
     - name: Update /etc/exports line3
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
       when: storage_server_dual_nics|bool == true
   when: 
     - use_uhp|bool == true
-    - "'storage' in group_names" 
 
 - block: 
     - name: Set facts for use_non_uhp_fs1
@@ -108,21 +86,20 @@
     - name: Update /etc/exports line1
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
 
     - name: Update /etc/exports line2
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
 
     - name: Update /etc/exports line3
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
       when: storage_server_dual_nics|bool == true
   when:
     - use_non_uhp_fs1|bool == true
-    - "'storage' in group_names"
 
 - block:
     - name: Set facts for use_non_uhp_fs2
@@ -132,22 +109,20 @@
     - name: Update /etc/exports line1
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
 
     - name: Update /etc/exports line2
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
 
     - name: Update /etc/exports line3
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
       when: storage_server_dual_nics|bool == true
   when:
     - use_non_uhp_fs2|bool == true
-    - "'storage' in group_names"
-
 
 - block:
     - name: Set facts for use_non_uhp_fs3
@@ -157,21 +132,31 @@
     - name: Update /etc/exports line1
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
 
     - name: Update /etc/exports line2
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
 
     - name: Update /etc/exports line3
       ansible.builtin.lineinfile:
         path: /etc/exports
-        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }} {{ options }}"
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
       when: storage_server_dual_nics|bool == true
   when:
     - use_non_uhp_fs3|bool == true
-    - "'storage' in group_names"
+
+- name: Restart nfs-server.service 
+  ansible.builtin.service:
+    name: nfs-server
+    state: restarted
+    enabled: true
+
+- name: Re-export the share
+  ansible.builtin.command: exportfs -rav
+  when: 
+    - fs_ha|bool == false
 
 - block:
     - name: Update SSH keys
@@ -199,6 +184,5 @@
         name: projects
         job: /bin/rsync -avziu -e ssh  /etc/projects root@${{ NODE2 }}:/etc/projects
   when: 
-    - "'storage' in group_names"
+    - fs_ha|bool == true
     - inventory_hostname == NODE1
-

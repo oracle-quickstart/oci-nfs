@@ -1,0 +1,13 @@
+[Unit]
+Description=Prometheus Node Exporter daemon for IaaS
+After=network.target
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart=/opt/node_exporter-1.0.1.linux-amd64/node_exporter --collector.systemd 
+Restart=on-failure
+RestartSec=5s
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target

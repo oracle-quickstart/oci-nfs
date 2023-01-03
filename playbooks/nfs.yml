@@ -29,6 +29,11 @@
         - '!any'
         - 'network'
   tasks:
+  - name: set facts
+    ansible.builtin.set_fact:
+      NODE1: "{{ storage_server_hostname_prefix }}1"
+      NODE2: "{{ storage_server_hostname_prefix }}2"
+      ha_config_dir: /home/opc/ha_config
   - name: Disable SELinux
     selinux:
       state: disabled
@@ -134,21 +139,22 @@
 #  - name: execute tuning.sh
 #    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning.sh"
 
-  - name: execute install_ha_config
-    include: install_quorum_ha_config.yml
-  - include: install_quorum_ha_config.yml
-  - include: configure_vnic.yml
-  - include: install_storage.yml
-  - include: install_ha_config.yml
-  - include: vip_move.yml
-  - include: configure_nfs_server.yml
-  - include: configure_stonith.yml
-  - include: configure_pcs_cluster.yml
-  - include: add_lvm_activate_resources.yml
-  - include: add_filesystem_resources.yml
-  - include: configure_nfsgroup_nfs_resources.yml
-    when: fs_ha|bool
+  - name: Configure NFS
+    include: configure_nfs_server.yml
 
+  - name: Configure HA service
+    include: "{{ item }}"
+    with_items:
+      - env_update.yml
+      - configure_vnic.yml
+      - install_ha_config.yml
+      - vip_move.yml
+      - configure_stonith.yml
+      - configure_pcs_cluster.yml
+      - add_lvm_activate_resources.yml
+      - add_filesystem_resources.yml
+      - configure_nfsgroup_nfs_resources.yml
+    when: fs_ha|bool
 
 - hosts: compute
   become: true
@@ -393,6 +399,3 @@
     async: 30
     poll: 0
     when: use_non_uhp_fs3|bool
-
-
-

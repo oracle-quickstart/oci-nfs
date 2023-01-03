@@ -1,0 +1,11 @@
+[Unit]
+Description=Script to configure a secondary vNIC
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /root/secondary_vnic_all_configure.sh -c
+ExecStop=/bin/bash /root/secondary_vnic_all_configure.sh -d
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

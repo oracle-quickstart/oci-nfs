@@ -1,4 +1,3 @@
-
 - hosts: storage,quorum,monitor
   become: true
   pre_tasks:
@@ -9,14 +8,8 @@
         - 'network'
   tasks:
   - name: create install_monitor_agent.sh file
-    template:
-      src: _install_monitor_agent.sh.j2
-      dest: /home/opc/install_monitor_agent.sh
+    include: install_monitor_agent.yml
     when: install_monitor_agent|bool
-  - name: execute install_monitor_agent.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_monitor_agent.sh"
-    when: install_monitor_agent|bool
-
 
 - hosts: monitor
   become: true
@@ -43,7 +36,6 @@
       dest: /home/opc/install_monitor_config.sh
   - name: execute install_monitor_config.sh
     command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_monitor_config.sh"
-
 
 - hosts: monitor
   become: true

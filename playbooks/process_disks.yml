@@ -1,16 +1,19 @@
-- debug:
-    var: blk_lst
-- debug:
-    var: blk_cnt
-- name: set mount point name fs1
+- name: Set mount point name fs0
+  ansible.builtin.set_fact:
+    mount_point: "/mnt/{{ fs0_name }}"
+    disk_name: disk0
+  when:
+    - use_uhp|bool == True
+
+- name: Set mount point name fs1
   ansible.builtin.set_fact:
     mount_point: "/mnt/{{ fs1_name }}"
-    disk_name: disk1
+    disk_name: disk
   when:
     - fs_type == "Persistent"
     - use_non_uhp_fs1|bool == True
 
-- name: set mount point name fs2
+- name: Set mount point name fs2
   ansible.builtin.set_fact:
     mount_point: "/mnt/{{ fs2_name }}"
     disk_name: disk2
@@ -18,7 +21,7 @@
     - fs_type == "Persistent"
     - use_non_uhp_fs2|bool == True
 
-- name: set mount point name fs3
+- name: Set mount point name fs3
   ansible.builtin.set_fact:
     mount_point: "/mnt/{{ fs3_name }}"
     disk_name: disk3
@@ -27,10 +30,79 @@
     - use_non_uhp_fs3|bool == True
 
 - block:
-    - name: create volume group
+    - name: Configure HA storage
+      ansible.builtin.shell: lvmconf --enable-halvm --services --startstopservices
+      
+    - name: Create volume group
       lvg:
-        vg: vg_nfs_disk0
-        pvs: "{{ blk_lst.stdout }}"
+        vg: "vg_nfs_{{ disk_name }}"
+        pvs: "{{ blk_lst.stdout_lines }}"
+    
+    - name: Create Logical volume
+      lvol:
+        vg: "vg_nfs_{{ disk_name }}"
+        lv: "{{ disk_name }}"
+        size: 100%FREE
+        opts: -i "{{ blk_cnt.stdout }}" -I "{{ lvm_stripe_size }}"k
+      ignore_errors: true
+      when: 
+        - blk_cnt.stdout|int > 1 
+
+    - name: Create Logical volume
+      lvol:
+        vg: "vg_nfs_{{ disk_name }}"
+        lv: "{{ disk_name }}"
+        size: 100%FREE
+      ignore_errors: true
+      when:
+        - blk_cnt.stdout|int == 1
+
+    - name: Create file system
+      filesystem:
+        fstype: xfs
+        dev: "/dev/vg_nfs_{{ disk_name }}/{{ disk_name }}"
+
+    - name: Create mount point
+      file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: '0755'
+
+    - name: Mount filesystem
+      mount:
+        path: "{{ mount_point }}"
+        src: "/dev/vg_nfs_{{ disk_name }}/{{ disk_name }}"
+        fstype: xfs
+        opts: defaults,_netdev,nofail,noatime,inode64,uquota,prjquota
+        fstab: /tmp/fstab.dummy
+        state: mounted
+
+    - name: Create mount point /exports
+      file:
+        path: "{{ mount_point }}/exports"
+        state: directory
+        mode: '0755'
+
+    - name: Unmount filesystem
+      mount:
+        path: "{{ mount_point }}"
+        state: unmounted
+  when:
+    - fs_ha|bool == true
+    - inventory_hostname == NODE1
+
+- block:
+    - name: Configure non HA storage
+      lvg:
+        vg: "vg_nfs_{{ disk_name }}"
+        pvs: "{{ blk_lst.stdout_lines }}"
+      when: nvme_cnt | int == 0
+
+    - name: Create volume group nvme
+      lvg:
+        vg: "vg_nfs_{{ disk_name }}"
+        pvs: "{{ nvme_lst.stdout_lines }}"
+      when: nvme_cnt | int > 0
 
     - name: Create Logical volume
       lvol:
@@ -39,7 +111,18 @@
         size: 100%FREE
         opts: -i "{{ blk_cnt.stdout }}" -I "{{ lvm_stripe_size }}"k
       ignore_errors: true
-      when: blk_cnt.stdout|int > 1
+      when: 
+        - blk_cnt.stdout|int > 1 
+
+    - name: Create Logical volume nvme
+      lvol:
+        vg: "vg_nfs_{{ disk_name }}"
+        lv: "{{ disk_name }}"
+        size: 100%FREE
+        opts: -i "{{ nvme_cnt.stdout }}" -I "{{ lvm_stripe_size }}"k
+      ignore_errors: true
+      when: 
+        - nvme_cnt | int > 1   
 
     - name: Create Logical volume
       lvol:
@@ -47,8 +130,9 @@
         lv: "{{ disk_name }}"
         size: 100%FREE
       ignore_errors: true
-      when: blk_cnt.stdout|int == 1
-
+      when:
+        - blk_cnt.stdout|int == 1 or
+          nvme_cnt | int == 1
  
     - name: Create file system
       filesystem:
@@ -61,9 +145,6 @@
         state: directory
         mode: '0755'
 
-    - name: run xfs_repair
-      ansible.builtin.shell: xfs_repair "/dev/vg_nfs_{{ disk_name }}/{{ disk_name }}"
-
     - name: Mount filesystem
       mount:
         path: "{{ mount_point }}"
@@ -73,15 +154,19 @@
         fstab: /tmp/fstab.dummy
         state: mounted
 
-    - name: Unmount filesystem
-      mount:
-        path: "{{ mount_point }}"
-        state: unmounted
-      when: fs_ha|bool == true
+    - name: Create mount point /exports
+      file:
+        path: "{{ mount_point }}/exports"
+        state: directory
+        mode: '0755'
 
-    - name: Update fstab fopr for non HA depoyment
+    - name: Fetch fstab.dummy from "{{ NODE1 }}"
+      fetch:
+        src: /tmp/fstab.dummy
+        dest: /tmp/
+        flat: yes
+
+    - name: Update fstab for non HA depoyment
       lineinfile: path=/etc/fstab line={{lookup('file', '/tmp/fstab.dummy')}} create=yes state=present
-      when: fs_ha|bool == false
   when:
-    -  "'storage' in group_names"
-    #- inventory_hostname == NODE1
+    -  fs_ha|bool == false

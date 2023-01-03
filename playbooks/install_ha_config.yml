@@ -1,4 +1,4 @@
-  - name: set facts
+  - name: Set facts
     ansible.builtin.set_fact:
       NODE1: "{{ storage_server_hostname_prefix }}1"
       NODE2: "{{ storage_server_hostname_prefix }}2"
@@ -24,7 +24,6 @@
         - sbd
         - corosync-qdevice
       state: latest
-    when: "'storage' in group_names"
 
   - name: Make sure an entry in /etc/hosts exists
     lineinfile:
@@ -32,11 +31,10 @@
       regexp: "^{{ ansible_default_ipv4.address }}"
       line: "{{ ansible_default_ipv4.address }} {{ ansible_fqdn }} {{ ansible_hostname }} {{ inventory_hostname }}"
       state: present
-    tags: network,hostname,dns
 
   - name: Generate keys
     shell:  corosync-keygen -l
-    when: ansible_hostname == NODE1
+    when: inventory_hostname == NODE1
 
   - name: Fetch keys from "{{ NODE1 }}"
     fetch:
@@ -62,12 +60,10 @@
     ansible.builtin.user:
       name: hacluster
       password: "{{ hacluster_user_password | password_hash('sha512') }}"
-    when: ("'storage' in group_names") or ("'quorum' in group_names")
 
   - name: Authenticate the cluster nodes
-    ansible.builtin.command: pcs cluster auth -u hacluster -p "{{ hacluster_user_password }}" "{{ inventory_hostname }}"
+    ansible.builtin.command: pcs cluster auth -u hacluster -p "{{ hacluster_user_password }}" "{{ ansible_hostname }}"
     register: pcs_auth
-    when: ("'storage' in group_names") or ("'quorum' in group_names")
 
   - name: Check quorum device status
     ansible.builtin.debug:
@@ -75,59 +71,56 @@
     failed_when:
       - pcs_auth != 0
       - "'Authorized' not in pcs_auth.stdout"
-    when: ("'storage' in group_names") or ("'quorum' in group_names")
 
-  - block:
-      - name: Copy corosync.conf 
-        ansible.builtin.copy:
-          src: "{{ ha_config_dir }}/corosync.conf" 
-          dest: /etc/corosync/
-          remote_src: yes
-          owner: root
+  - name: Copy corosync.conf 
+    ansible.builtin.copy:
+      src: "{{ ha_config_dir }}/corosync.conf" 
+      dest: /etc/corosync/
+      remote_src: yes
+      owner: root
 
-      - name: Update corosync.conf for "{{ NODE1 }}"
-        replace:
-          path: /etc/corosync/corosync.conf
-          regexp: 'NODE1'
-          replace: "{{ NODE1 }}"
+  - name: Update corosync.conf for "{{ NODE1 }}"
+    replace:
+      path: /etc/corosync/corosync.conf
+      regexp: 'NODE1'
+      replace: "{{ NODE1 }}"
 
-      - name: Update corosync.conf for "{{ NODE2 }}"
-        replace:
-          path: /etc/corosync/corosync.conf
-          regexp: 'NODE2'
-          replace: "{{ NODE2 }}"
+  - name: Update corosync.conf for "{{ NODE2 }}"
+    replace:
+      path: /etc/corosync/corosync.conf
+      regexp: 'NODE2'
+      replace: "{{ NODE2 }}"
 
-      - name: Create /etc/corosync/service.d/
-        file:
-          path: /etc/corosync/service.d
-          state: directory
+  - name: Create /etc/corosync/service.d/
+    file:
+      path: /etc/corosync/service.d
+      state: directory
 
-      - name: Update pcmk
-        ansible.builtin.copy:
-          src: "{{ ha_config_dir }}/pcmk"
-          dest: /etc/corosync/service.d/
-          remote_src: yes
-          owner: root
+  - name: Update pcmk
+    ansible.builtin.copy:
+      src: "{{ ha_config_dir }}/pcmk"
+      dest: /etc/corosync/service.d/
+      remote_src: yes
+      owner: root
 
-      - name: Update corosync
-        ansible.builtin.copy:
-          src: "{{ ha_config_dir }}/corosync"
-          dest: /etc/corosync/service.d/
-          remote_src: yes
-          owner: root
-          backup: yes
+  - name: Update corosync
+    ansible.builtin.copy:
+      src: "{{ ha_config_dir }}/corosync"
+      dest: /etc/corosync/service.d/
+      remote_src: yes
+      owner: root
+      backup: yes
 
-      - name: Create /var/log/corosync
-        file:
-          path: /var/log/corosync
-          state: directory
+  - name: Create /var/log/corosync
+    file:
+      path: /var/log/corosync
+      state: directory
 
-      - name: Start corosync service
-        ansible.builtin.systemd:
-          name: corosync
-          state: started
-          enabled: yes
-    when: "'server' in inventory_hostname"
+  - name: Start corosync service
+    ansible.builtin.systemd:
+      name: corosync
+      state: started
+      enabled: yes
 
   - name: Waiting for auth key
     ansible.builtin.wait_for:
@@ -139,7 +132,6 @@
       name: corosync
       state: started
       enabled: yes
-    when: "'storage' in group_names"
 
   - name: Wait for corosync to be online on node 2
     ansible.builtin.shell: systemctl status  corosync  | grep "(running)"
@@ -162,19 +154,16 @@
   - name: View cluster members
     ansible.builtin.shell: corosync-cmapctl | grep members
     register: coro_members
-    when: "'storage' in group_names"
 
   - name: Show cluster members
     ansible.builtin.debug:
       var: coro_members.stdout
-    when: "'storage' in group_names"
 
   - name: Start pcsd service
     ansible.builtin.systemd:
       name: pcsd
       state: started
       enabled: yes
-    when: "'storage' in group_names"
 
   - name: Wait for pcsd to be online on node 2
     ansible.builtin.shell: systemctl status pcsd | grep "(running)"
@@ -193,8 +182,6 @@
       path: /tmp/pcsdstat
       search_regex: running
     delegate_to: localhost
-
-#VIP Move
   
   - name: Create oracle-cli
     file:
@@ -202,18 +189,15 @@
       state: directory
       owner: root
       mode: 0755
-    when: "'server' in inventory_hostname"
  
   - name: Download install.sh
     ansible.builtin.get_url:
       url: https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
       dest: /home/oracle-cli/
       mode: '0755'
-    when: "'server' in inventory_hostname"
   
   - name: Run install.sh
     ansible.builtin.shell: /home/oracle-cli/install.sh --accept-all-defaults --exec-dir /home/oracle-cli/bin/ --install-dir /home/oracle-cli/lib/
-    when: "'server' in inventory_hostname"
     
   - name: Remove install.sh
     file:
@@ -221,18 +205,14 @@
         - /home/oracle-cli/install.sh
         - /root/bin/oci-cli-scripts
       state: absent
-    when: "'server' in inventory_hostname"
 
-  - name: Create dir
+  - name: Create ddirectory /home/oracle-cli/.oci
     file: 
       path: /home/oracle-cli/.oci
       state: directory
       owner: hacluster 
       group: haclient
       mode: 700
-    when: "'server' in inventory_hostname"
 
-  - name: 
+  - name: Get instance_principal
     ansible.builtin.raw: /home/oracle-cli/bin/oci os ns get --auth instance_principal
-    when: "'server' in inventory_hostname"
- 

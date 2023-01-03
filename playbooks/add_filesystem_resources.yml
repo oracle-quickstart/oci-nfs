@@ -20,8 +20,7 @@
       ansible.builtin.shell: pcs -f /root/{{ pcs_cfg }} resource update {{ filesystem_name }} op stop timeout=200s
   when:
     - inventory_hostname == NODE1
-    - use_uhp|bool == true
-      
+    - use_uhp|bool == true    
 
 - block:
     - name: Set facts
@@ -73,4 +72,3 @@
   when:
     - inventory_hostname == NODE1
     - use_non_uhp_fs3|bool == true
-
