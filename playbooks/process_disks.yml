@@ -3,7 +3,7 @@
     mount_point: "/mnt/{{ fs0_name }}"
     disk_name: disk0
   when:
-    - use_uhp|bool == True
+    - use_uhp|bool == true
 
 - name: Set mount point name fs1
   ansible.builtin.set_fact:
@@ -11,7 +11,7 @@
     disk_name: disk
   when:
     - fs_type == "Persistent"
-    - use_non_uhp_fs1|bool == True
+    - use_non_uhp_fs1|bool == true
 
 - name: Set mount point name fs2
   ansible.builtin.set_fact:
@@ -19,7 +19,7 @@
     disk_name: disk2
   when:
     - fs_type == "Persistent"
-    - use_non_uhp_fs2|bool == True
+    - use_non_uhp_fs2|bool == true
 
 - name: Set mount point name fs3
   ansible.builtin.set_fact:
@@ -27,7 +27,7 @@
     disk_name: disk3
   when:
     - fs_type == "Persistent"
-    - use_non_uhp_fs3|bool == True
+    - use_non_uhp_fs3|bool == true
 
 - block:
     - name: Configure HA storage
