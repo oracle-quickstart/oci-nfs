@@ -65,7 +65,8 @@
       create: no
       
   - name: execute nfs_install_storage
-    include: install_storage.yml
+    ansible.builtin.include_role:
+      name: storage
   - name: create /home/opc/ha_config directory
     become: true
     file:
