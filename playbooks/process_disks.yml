@@ -114,7 +114,7 @@
       when: 
         - blk_cnt.stdout|int > 1 
 
-    - name: Create Logical volume nvme
+    - name: Create Logical volume if disk is nvme
       lvol:
         vg: "vg_nfs_{{ disk_name }}"
         lv: "{{ disk_name }}"
