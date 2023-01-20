@@ -144,17 +144,8 @@
     include: configure_nfs_server.yml
 
   - name: Configure HA service
-    include: "{{ item }}"
-    with_items:
-      - env_update.yml
-      - configure_vnic.yml
-      - install_ha_config.yml
-      - vip_move.yml
-      - configure_stonith.yml
-      - configure_pcs_cluster.yml
-      - add_lvm_activate_resources.yml
-      - add_filesystem_resources.yml
-      - configure_nfsgroup_nfs_resources.yml
+    ansible.builtin.include_role:
+      name: pcs_cluster
     when: fs_ha|bool
 
 - hosts: compute
