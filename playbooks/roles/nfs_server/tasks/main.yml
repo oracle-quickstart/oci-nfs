@@ -1,0 +1,2 @@
+- include: configure_nfs_server.yml
+  when: ansible_os_family == 'RedHat'
