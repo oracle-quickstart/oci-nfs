@@ -1,8 +1,3 @@
-- name: Set facts
-  ansible.builtin.set_fact:
-    pcs_cfg: nfs_cfg
-    pcs_group_parameter: '--group nfsgroup'
-
 - block:
     - name: Set facts
       ansible.builtin.set_fact:

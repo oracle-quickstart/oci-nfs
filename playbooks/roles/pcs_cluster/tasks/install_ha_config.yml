@@ -1,9 +1,3 @@
-  - name: Set facts
-    ansible.builtin.set_fact:
-      NODE1: "{{ storage_server_hostname_prefix }}1"
-      NODE2: "{{ storage_server_hostname_prefix }}2"
-      ha_config_dir: /home/opc/ha_config
-
   - name: Get Node1 IP
     set_fact:
        NODE1_IP: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
