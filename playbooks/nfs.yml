@@ -18,7 +18,8 @@
     async: 30
     poll: 0
   - name: Install ans configure corosync-qnetd
-    include: install_quorum_ha_config.yml
+    ansible.builtin.include_role:
+      name: quorum
 
 - hosts: storage
   become: true
@@ -51,8 +52,11 @@
         - nfs-utils
         - nfs4-acl-tools
       lock_timeout: 180
-  - name: execute configure_vnic
-    include: configure_vnic.yml
+
+  - name: Configure Network
+    ansible.builtin.include_role:
+      name: network
+
   - name: update lvm.conf
     command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
     
@@ -64,7 +68,7 @@
       state: present
       create: no
       
-  - name: Run storage role
+  - name: Configure Storage
     ansible.builtin.include_role:
       name: storage
   - name: create /home/opc/ha_config directory
