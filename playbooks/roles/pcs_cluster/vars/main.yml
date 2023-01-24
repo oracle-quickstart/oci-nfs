@@ -13,4 +13,3 @@ pcs_group_parameter: '--group nfsgroup'
 MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
 filesystem_type: xfs
 options: 'noatime,inode64,uquota,prjquota'
-pcs_group_parameter: '--group nfsgroup'
