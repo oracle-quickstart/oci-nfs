@@ -1,9 +1,3 @@
-- name: Set facts
-  ansible.builtin.set_fact:
-    exportfs_client_spec_1_cidr_block: "{{ private_storage_subnet_cidr_block }}"
-    exportfs_client_spec_2_cidr_block: "{{ public_subnet_cidr_block }}"
-    options: '(rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks)'
-
 - name: Calculate exportfs_client_spec_1_netmask
   ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_1_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
   register: exportfs_client_spec_1_netmask
@@ -36,10 +30,6 @@
   run_once: true
 
 - block: 
-    - name: Set fact exportfs_client_spec_3_cidr_block
-      ansible.builtin.set_fact:
-        exportfs_client_spec_3_cidr_block: "{{ private_fs_subnet_cidr_block }}"
-
     - name: Get exportfs_client_spec_3_netmask
       ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_3_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
       register: exportfs_client_spec_3_netmask

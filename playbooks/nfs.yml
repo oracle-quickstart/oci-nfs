@@ -64,7 +64,7 @@
       state: present
       create: no
       
-  - name: execute nfs_install_storage
+  - name: Run storage role
     ansible.builtin.include_role:
       name: storage
   - name: create /home/opc/ha_config directory
@@ -141,7 +141,8 @@
 #    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning.sh"
 
   - name: Configure NFS
-    include: configure_nfs_server.yml
+    ansible.builtin.include_role:
+      name: nfs_server
 
   - name: Configure HA service
     ansible.builtin.include_role:
