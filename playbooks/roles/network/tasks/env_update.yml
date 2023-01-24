@@ -25,7 +25,7 @@
         - node1_vnic_d.stdout == ""
   when: ansible_hostname == NODE1
 
-- add_host: Add variable to "{{ NODE2 }}"
+- add_host: 
     name: "{{ NODE2 }}"
     node1vnic: "{{ node1vnic }}"
 
