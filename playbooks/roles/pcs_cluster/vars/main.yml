@@ -1,0 +1,16 @@
+NODE1: "{{ storage_server_hostname_prefix }}1"
+NODE2: "{{ storage_server_hostname_prefix }}2"
+QUORUM_NODE: "{{ quorum_server_hostname }}"
+ha_config_dir: /home/opc/ha_config
+timeout_watchdog: 20
+timeout_msgwait: 40
+warn_threshold_watchdog_timeout: 17
+pcs_cfg: nfs_cfg 
+power_timeout: 45
+service_name: nfs-daemon
+filesystem_dir: "{{ fs0_dir }}"
+pcs_group_parameter: '--group nfsgroup'
+MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
+filesystem_type: xfs
+options: 'noatime,inode64,uquota,prjquota'
+pcs_group_parameter: '--group nfsgroup'

@@ -1,0 +1,5 @@
+--- 
+- include_tasks: "{{ item }}"
+  with_items:
+    - configure_vnic.yml
+    - env_update.yml

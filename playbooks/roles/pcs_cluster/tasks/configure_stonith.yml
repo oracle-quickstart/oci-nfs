@@ -1,12 +1,7 @@
-- name: set facts
-  ansible.builtin.set_fact:
-    timeout_watchdog: 20
-    timeout_msgwait: 40
-    warn_threshold_watchdog_timeout: 17
-
 - name: Shared storage fencing tool configuration
   ansible.builtin.shell: sbd -d /dev/oracleoci/oraclevdb -4 "{{ timeout_msgwait }} -1 {{ timeout_watchdog }} -5 {{ warn_threshold_watchdog_timeout }}"  create
   when: inventory_hostname == NODE1
+  
 - ansible.builtin.shell: sbd -d /dev/oracleoci/oraclevdb dump 
   when: inventory_hostname == NODE1
 

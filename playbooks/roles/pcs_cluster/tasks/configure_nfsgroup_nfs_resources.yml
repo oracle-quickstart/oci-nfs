@@ -1,12 +1,4 @@
 - block:
-    - name: Set fact
-      ansible.builtin.set_fact:
-        service_name: nfs-daemon
-        pcs_cfg: nfs_cfg
-        filesystem_dir: "{{ fs0_dir }}"
-        pcs_group_parameter: '--group nfsgroup'
-        MDATA_VNIC_URL: http://169.254.169.254/opc/v1/vnics/
-
     - name: Get CIDR netmask
       ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[1].subnetCidrBlock  ' | sed 's/"//g'| gawk -F"/" '{ print $2 }'
       register: cidr_netmask_d

@@ -1,8 +1,6 @@
 --- 
 - include_tasks: "{{ item }}"
   with_items:
-    - env_update.yml
-    - configure_vnic.yml
     - install_ha_config.yml
     - vip_move.yml
     - configure_stonith.yml

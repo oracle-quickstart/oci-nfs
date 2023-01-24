@@ -1,0 +1,4 @@
+NODE1_IP: "{{ hostvars[NODE1]['ansible_default_ipv4']['address'] }}"
+NODE2_IP: "{{ hostvars[NODE2]['ansible_default_ipv4']['address'] }}"
+NODE1_FQDN: "{{ hostvars[NODE1]['ansible_fqdn'] }}"
+NODE2_FQDN: "{{ hostvars[NODE2]['ansible_fqdn'] }}"
