@@ -76,14 +76,21 @@
       LOCAL_NODE={{ ansible_hostname }}
       LOCAL_NODE_IP={{ ansible_default_ipv4.address }}
       NODE1={{ NODE1 }}
-      NODE2={{ NODE2 }}
       NODE1_IP={{ NODE1_IP }}
-      NODE2_IP={{ NODE2_IP }}
       NODE1_FQDN={{ NODE1_FQDN }}
-      NODE2_FQDN={{ NODE2_FQDN }}
       QUORUM_NODE={{ quorum_server_hostname }}
       TARGET_VIP={{ nfs_server_ip }}
       node1vnic={{ node1vnic }}
+
+- name: Updating enviornment variables for {{ NODE2 }}
+  lineinfile:
+    path: "/root/env_variables.sh"
+    line: '{{ item }}'
+  with_items: 
+    - NODE2={{ NODE2 }}
+    - NODE2_IP={{ NODE2_IP }}
+    - NODE2_FQDN={{ NODE2_FQDN }}
+  when: fs_ha|bool == true
 
 - lineinfile: path=/root/env_variables.sh line={{lookup('file', '/tmp/node2vnic')}} create=yes state=present
 
