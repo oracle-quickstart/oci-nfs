@@ -1,7 +1,7 @@
 - name: Download secondary_vnic_all_configure
   ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/oracle/terraform-examples/master/examples/oci/connect_vcns_using_multiple_vnics/scripts/secondary_vnic_all_configure.sh
-    dest: /root/secondary_vnic_all_configure.sh
+    url: "{{ vnic_url }}"
+    dest: "{{ vnic_sloc }}"
     mode: '0755'
 
 - name: Create unit file
