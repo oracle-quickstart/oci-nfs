@@ -54,6 +54,11 @@
   - name: grow_xfs of boot volume
     command: bash -c 'sudo /usr/libexec/oci-growfs -y | egrep "NOCHANGE:|CHANGED:"'
 
+  - name: Install monitoring agent
+    ansible.builtin.include_role:
+      name: mon_agent
+    when: install_monitor_agent|bool
+
 - hosts: storage
   gather_facts: True
   become: true
@@ -67,8 +72,3 @@
 - import_playbook: nfs.yml
   when:
     - fs_name == "NFS"
-
-- name: Install monitoring agent
-  ansible.builtin.include_role:
-    name: mon_agent
-  when: install_monitor_agent|bool
