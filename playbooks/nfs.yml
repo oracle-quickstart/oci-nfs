@@ -71,11 +71,6 @@
   - name: Configure Storage
     ansible.builtin.include_role:
       name: storage
-  - name: Install monitoring agent
-    ansible.builtin.include_role:
-      name: mon_agent
-    when: install_monitor_agent|bool
-
 
   - name: create /home/opc/ha_config directory
     become: true
