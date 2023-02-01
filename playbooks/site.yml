@@ -68,5 +68,6 @@
   when:
     - fs_name == "NFS"
 
-- import_playbook: grafana.yml
+- include_role:
+    name: mon_agent
   when: install_monitor_agent|bool
