@@ -68,6 +68,7 @@
   when:
     - fs_name == "NFS"
 
-- include_role:
+- name: Install monitoring agent
+  ansible.builtin.include_role:
     name: mon_agent
   when: install_monitor_agent|bool

@@ -71,12 +71,14 @@
   - name: Configure Storage
     ansible.builtin.include_role:
       name: storage
+
   - name: create /home/opc/ha_config directory
     become: true
     file:
       path: /home/opc/ha_config
       state: directory
     when: fs_ha|bool
+
   - name: create corosync file
     template:
       src: _corosync.j2
@@ -103,6 +105,7 @@
       group: root
       mode: 0644
     when: fs_ha|bool
+
   - name: Restart service cron, in all cases, also issue daemon-reload to pick up config changes
     systemd:
       state: restarted
@@ -246,8 +249,6 @@
     poll: 0
     when: use_non_uhp_fs1|bool
 
-
-
   - name: create nfs mount_point directory
     become: true
     file:
@@ -297,7 +298,6 @@
     async: 30
     poll: 0
     when: use_uhp|bool
-
 
   - name: create nfs mount_point directory
     become: true
