@@ -1,2 +1,2 @@
 ---
-- inclinclude_tasks: install_monitor_agent.yml
+- include_tasks: install_monitor_agent.yml
