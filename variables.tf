@@ -264,7 +264,7 @@ resource random_string hacluster_user_password {
   min_upper   = 2
   lower       = true
   min_lower   = 2
-  number      = true
+  numeric     = true
   min_numeric = 2
   override_special = "!@#-_&*=+"
 }
