@@ -1,0 +1,4 @@
+GOROOT_BIN: /usr/local/go/bin
+node_exporter: https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/node_exporter-1.0.1.linux-amd64.tar.gz
+go_url: https://go.dev/dl/go1.19.4.linux-386.tar.gz
+ha_cluster_exporter: https://github.com/ClusterLabs/ha_cluster_exporter

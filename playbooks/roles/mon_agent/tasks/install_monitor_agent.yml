@@ -1,10 +1,7 @@
-- name: set facts
-  ansible.builtin.set_fact:
-    GOROOT_BIN: /usr/local/go/bin
 
 - name: Install Prometheus Node Exporter for IaaS metrics
   ansible.builtin.unarchive:
-    src: https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/node_exporter-1.0.1.linux-amd64.tar.gz
+    src: "{{ node_exporter }}"
     dest: /opt/
     remote_src: yes
 
@@ -29,13 +26,13 @@
 
 - name: Install Prometheus Node Exporter for IaaS metrics
   ansible.builtin.unarchive:
-    src: https://objectstorage.us-ashburn-1.oraclecloud.com/n/hpc_limited_availability/b/grafana/o/node_exporter-1.0.1.linux-amd64.tar.gz
+    src: "{{ node_exporter }}"
     dest: /opt/
     remote_src: yes
 
 - name: Install go
   ansible.builtin.unarchive:
-    src: https://go.dev/dl/go1.19.4.linux-386.tar.gz
+    src: "{{ go_url }}"
     dest: /usr/local
     remote_src: yes
 
@@ -64,7 +61,7 @@
 
 - name: Git clone ha_cluster_exporter
   ansible.builtin.git:
-    repo: 'https://github.com/ClusterLabs/ha_cluster_exporter'
+    repo: "{{ ha_cluster_exporter }}"
     dest: /tmp/ha_cluster_exporter
 
 - name: Install ha_cluster_exporter
