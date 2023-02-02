@@ -37,7 +37,6 @@
   - name: execute install_monitor_config.sh
     command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_monitor_config.sh"
 
-
 - hosts: monitor
   become: true
   vars:
