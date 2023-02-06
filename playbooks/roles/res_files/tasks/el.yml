@@ -1,3 +1,8 @@
+  - name: Create /home/opc/ha_config
+    file: 
+      path: /home/opc/ha_config
+      state: directory
+      
   - name: create ip_move.sh file
     template:
       src: _ip_move.sh.j2

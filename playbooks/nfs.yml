@@ -37,7 +37,7 @@
       NODE1: "{{ storage_server_hostname_prefix }}1"
       NODE2: "{{ storage_server_hostname_prefix }}2"
       ha_config_dir: /home/opc/ha_config
-      
+
   - name: Disable SELinux
     selinux:
       state: disabled
@@ -61,6 +61,7 @@
   - name: Configure corosync
     ansible.builtin.include_role:
       name: corosync
+    when: fs_ha|bool
 
   - name: Restart cron
     ansible.builtin.include_role:
@@ -69,6 +70,7 @@
   - name: Configure cluster resorce files
     ansible.builtin.include_role:
       name: res_files
+    when: fs_ha|bool
   
 
   # only for VMs - since they come up too quickly before stonith fencing completes.
