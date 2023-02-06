@@ -61,7 +61,7 @@
     ansible.builtin.include_role:
       name: cron
 
-  - name: Configure cluster resorce files
+  - name: Configure cluster resource files
     ansible.builtin.include_role:
       name: res_files
     when: fs_ha|bool
