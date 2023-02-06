@@ -4,3 +4,5 @@
     name: firewalld
     state: stopped
     enabled: no
+  async: 30
+  poll: 0

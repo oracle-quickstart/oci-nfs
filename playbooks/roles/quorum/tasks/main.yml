@@ -1,2 +1,2 @@
-- include: install_quorum_ha_config.yml
+- include: el.yml
   when: ansible_os_family == 'RedHat'

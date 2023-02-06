@@ -1,0 +1,15 @@
+---
+- name: Install cluster packages
+  become: true
+  ansible.builtin.yum:
+    name:
+      - nfs-utils
+      - nfs4-acl-tools
+      - pcs
+      - pacemaker
+      - corosync
+      - fence-agents-sbd
+      - sbd
+      - corosync-qdevice
+    state: latest
+    lock_timeout: 180

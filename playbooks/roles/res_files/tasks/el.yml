@@ -1,0 +1,15 @@
+  - name: create ip_move.sh file
+    template:
+      src: _ip_move.sh.j2
+      dest: /home/opc/ha_config/ip_move.sh
+    when: fs_ha|bool
+  - name: create move_secip.sh file
+    template:
+      src: _move_secip.sh.j2
+      dest: /home/opc/ha_config/move_secip.sh
+    when: fs_ha|bool
+  - name: create pcmk file
+    template:
+      src: _pcmk.j2
+      dest: /home/opc/ha_config/pcmk
+    when: fs_ha|bool

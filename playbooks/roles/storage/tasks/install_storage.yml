@@ -10,14 +10,19 @@
   when: 
     - ansible_facts['processor_cores']*ansible_facts['processor_count'] > 16
 
-#- name: Remove strings from block_size if present
-# ansible.builtin.set_fact:
-#    lvm_stripe_size: "{{ block_size | replace('kb', '') | replace('KB', '') | replace('k', '') | replace('K', '') }}"
-- debug:
-    msg: "{{ lvm_stripe_size }}"
-  
+- name: update lvm.conf
+  command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
+    
+- name: disable auto_activation_volume in lvm.conf
+  lineinfile:
+    path: /etc/lvm/lvm.conf
+    insertbefore: '# Configuration option activation/read_only_volume_list'
+    line: 'auto_activation_volume_list = []'
+    state: present
+    create: no
+
 #find_UHP_block_volume
-- name: 
+- name: fs_ha and use_uhp is defined
   block:
     - name: Waiting for UHP block plugin to do batch iscsi login to complete
       ansible.builtin.wait_for:
@@ -36,7 +41,7 @@
     - use_uhp|bool == true
     - fs_ha|bool == true
 
-- name: 
+- name: fs_ha is not defined and use_uhp is defined
   block:
     - name: Set blk_lst and blk_cnt when fs_ha is not defined and use_uhp is defined
       shell: ls /dev/oracleoci/oraclevd* | grep -v vda[0-9] | grep -v vda$ | grep -v nvme |  grep "vdb$" | sort
@@ -56,7 +61,7 @@
   ansible.builtin.wait_for:
     path: /tmp/block-attach.complete
 
-- name:
+- name: fs_ha is defined and use_uhp is not defined
   block:
     - name: Set blk_lst and blk_cnt when fs_ha is defined and use_uhp is not defined
       shell: ls /dev/oracleoci/oraclevd* | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | egrep -v "vdb$"
@@ -71,7 +76,7 @@
      - fs_ha|bool == true
      - use_uhp|bool == false
 
-- name:
+- name: fs_ha and use_uhp is not defined
   block:
     - name: Set blk_lst and blk_cnt when fs_ha and use_uhp is not defined
       shell: ls /dev/oracleoci/oraclevd*  | grep -v vda[0-9] | grep -v vda$ | grep -v nvme | sort
@@ -86,7 +91,7 @@
      - fs_ha|bool == false
      - use_uhp|bool == false
 
-- name:
+- name: Find nvme disks
   block:
     - name: Find nvme disks
       shell: ls /dev/* | grep nvme | grep n1 | sort

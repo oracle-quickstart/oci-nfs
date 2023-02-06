@@ -10,7 +10,7 @@
         - 'network'
   roles:
     - oci-cloud-agent
-    - firewalld
+    - firewall
     - ssh
     - boot-volume
 

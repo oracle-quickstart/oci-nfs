@@ -10,14 +10,16 @@
   - name: Disable SELinux
     selinux:
       state: disabled
+
   - name: stop firewalld
-    service:
-      name: firewalld
-      state: stopped
-      enabled: no
-    async: 30
-    poll: 0
-  - name: Install ans configure corosync-qnetd
+    ansible.builtin.include_role:
+      name: firewall
+
+  - name: Install packages
+    ansible.builtin.include_role:
+      name: packages
+
+  - name: Configure corosync-qnetd
     ansible.builtin.include_role:
       name: quorum
 
@@ -35,117 +37,49 @@
       NODE1: "{{ storage_server_hostname_prefix }}1"
       NODE2: "{{ storage_server_hostname_prefix }}2"
       ha_config_dir: /home/opc/ha_config
+      
   - name: Disable SELinux
     selinux:
       state: disabled
+
   - name: stop firewalld
-    service:
-      name: firewalld
-      state: stopped
-      enabled: no
-    async: 30
-    poll: 0
-  - name: install nfs_utils
-    become: true
-    yum:
-      name:
-        - nfs-utils
-        - nfs4-acl-tools
-      lock_timeout: 180
+    ansible.builtin.include_role:
+      name: firewall
+
+  - name: install packages
+    ansible.builtin.include_role:
+      name: packages
 
   - name: Configure Network
     ansible.builtin.include_role:
       name: network
-
-  - name: update lvm.conf
-    command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
     
-  - name: disable auto_activation_volume in lvm.conf
-    lineinfile:
-      path: /etc/lvm/lvm.conf
-      insertbefore: '# Configuration option activation/read_only_volume_list'
-      line: 'auto_activation_volume_list = []'
-      state: present
-      create: no
-      
   - name: Configure Storage
     ansible.builtin.include_role:
       name: storage
 
-  - name: create /home/opc/ha_config directory
-    become: true
-    file:
-      path: /home/opc/ha_config
-      state: directory
-    when: fs_ha|bool
+  - name: Configure corosync
+    ansible.builtin.include_role:
+      name: corosync
 
-  - name: create corosync file
-    template:
-      src: _corosync.j2
-      dest: /home/opc/ha_config/corosync
-    when: fs_ha|bool
-#  - name: create corosync.conf with 2 rings
-#    template:
-#      src: _corosync.conf.2ring.j2
-#      dest: /home/opc/ha_config/corosync.conf
-#    when: (fs_ha|bool and {{ storage_server_dual_nics }})|default(false)|bool
-  - name: create corosync.conf with 1 ring
-    template:
-      src: _corosync.conf.1ring.j2
-      dest: /home/opc/ha_config/corosync.conf
-    when: fs_ha|bool
-#    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
-  - name: create logrotate.d corosync file
-    template:
-      src: _logrotate.d_corosync.j2
-      dest: /etc/logrotate.d/corosync
-      force: true
-      backup: true
-      owner: root
-      group: root
-      mode: 0644
-    when: fs_ha|bool
+  - name: Restart cron
+    ansible.builtin.include_role:
+      name: cron
 
-  - name: Restart service cron, in all cases, also issue daemon-reload to pick up config changes
-    systemd:
-      state: restarted
-      daemon_reload: yes
-      name: crond
-    when: fs_ha|bool
-
-  - name: create ip_move.sh file
-    template:
-      src: _ip_move.sh.j2
-      dest: /home/opc/ha_config/ip_move.sh
-    when: fs_ha|bool
-  - name: create move_secip.sh file
-    template:
-      src: _move_secip.sh.j2
-      dest: /home/opc/ha_config/move_secip.sh
-    when: fs_ha|bool
-  - name: create pcmk file
-    template:
-      src: _pcmk.j2
-      dest: /home/opc/ha_config/pcmk
-    when: fs_ha|bool
+  - name: Configure cluster resorce files
+    ansible.builtin.include_role:
+      name: res_files
+  
 
   # only for VMs - since they come up too quickly before stonith fencing completes.
   - name: add 30s delay for VM instances for corosync service
     lineinfile:
       path: /usr/lib/systemd/system/corosync.service
-      #regexp: 'ExecStart=/usr/share/corosync/corosync start'
       insertbefore: 'ExecStart=/usr/share/corosync/corosync start'
       line: 'ExecStartPre=/bin/sleep 30'
       state: present
       create: no
     when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
-
-#  - name: create tuning.sh file
-#    template:
-#      src: _tuning.sh.j2
-#      dest: /home/opc/tuning.sh
-#  - name: execute tuning.sh
-#    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning.sh"
 
   - name: Configure NFS
     ansible.builtin.include_role:
@@ -168,20 +102,15 @@
   - name: Disable SELinux
     selinux:
       state: disabled
+      
   - name: stop firewalld
-    service:
-      name: firewalld
-      state: stopped
-      enabled: no
-    async: 30
-    poll: 0
-  - name: install nfs_utils
-    become: true
-    yum:
-      name:
-        - nfs-utils
-        - nfs4-acl-tools
-      lock_timeout: 180
+    ansible.builtin.include_role:
+      name: firewall
+
+  - name: install packages
+    ansible.builtin.include_role:
+      name: packages
+
   - name: create nfs_install_client.sh file
     template:
       src: _nfs_install_client.sh.j2
@@ -192,13 +121,6 @@
     wait_for:
       timeout: 60
     delegate_to: localhost
-
-#  - name: create tuning_client.sh file
-#    template:
-#      src: _tuning_client.sh.j2
-#      dest: /home/opc/tuning_client.sh
-#  - name: execute tuning_client.sh
-#    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning_client.sh"
 
   - name: create nfs mount_point directory
     become: true

@@ -1,0 +1,5 @@
+- include: quorum.yml
+  when: "'quorum' in group_names"
+
+- include: cluster.yml
+  when:  "'storage' in group_names"

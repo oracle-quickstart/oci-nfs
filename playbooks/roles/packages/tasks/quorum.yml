@@ -1,0 +1,8 @@
+- name: Install quorum packages
+  become: true
+  ansible.builtin.yum:
+    name:
+      - pcs
+      - corosync-qnetd
+    state: latest
+    lock_timeout: 180
