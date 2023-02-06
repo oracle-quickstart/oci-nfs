@@ -38,8 +38,8 @@
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
   when: 
-    - use_uhp|bool == true
-    - fs_ha|bool == true
+    - use_uhp|bool
+    - fs_ha|bool
 
 - name: fs_ha is not defined and use_uhp is defined
   block:
@@ -53,8 +53,8 @@
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
   when:
-    - use_uhp|bool == true
-    - fs_ha|bool == false
+    - use_uhp|bool
+    - not fs_ha|bool
 
 #find_block_volumes
 - name: Waiting for block-attach of Block volumes to complete
@@ -73,8 +73,8 @@
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
   when:
-     - fs_ha|bool == true
-     - use_uhp|bool == false
+     - fs_ha|bool
+     - not use_uhp|bool
 
 - name: fs_ha and use_uhp is not defined
   block:
@@ -88,8 +88,8 @@
     - name: Process disks
       ansible.builtin.include_tasks: process_disks.yml
   when:
-     - fs_ha|bool == false
-     - use_uhp|bool == false
+     - not fs_ha|bool
+     - not use_uhp|bool
 
 - name: Find nvme disks
   block:
