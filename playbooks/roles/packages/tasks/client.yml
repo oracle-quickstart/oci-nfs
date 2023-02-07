@@ -1,0 +1,8 @@
+---
+- name: Install nfs client packages
+  become: true
+  ansible.builtin.yum:
+    name:
+      - nfs-utils
+    state: latest
+    lock_timeout: 180

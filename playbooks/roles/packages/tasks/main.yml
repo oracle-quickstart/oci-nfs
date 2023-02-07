@@ -3,3 +3,6 @@
 
 - include: cluster.yml
   when:  "'storage' in group_names"
+
+- include: client.yml
+  when: "'compute' in group_names"
