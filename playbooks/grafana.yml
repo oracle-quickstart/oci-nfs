@@ -7,7 +7,7 @@
         - '!any'
         - 'network'
   tasks:
-  - include_role:
+  - ansible.builtin.include_role:
       name: mon_agent
     when: install_monitor_agent|bool
 
@@ -26,21 +26,15 @@
   - name: Stop firewalld
     ansible.builtin.include_role:
       name: firewall
-  - name: create install_monitor_config.sh file
-    template:
-      src: _install_monitor_config.sh.j2
-      dest: /home/opc/install_monitor_config.sh
-  - name: execute install_monitor_config.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_monitor_config.sh"
-
+  
 - hosts: monitor
   become: true
   vars:
     monitoring: true
   tasks:
-    - include_role:
+    - ansible.builtin.include_role:
         name: prometheus
       when: install_monitor_agent|default(false)|bool
-    - include_role:
+    - ansible.builtin.include_role:
         name: grafana
       when: install_monitor_agent|default(false)|bool
