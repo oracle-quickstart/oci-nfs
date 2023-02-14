@@ -130,9 +130,9 @@ groupings:
 # Add variable here ,  if you want to do input validation or else it does not need to be included here.
 variables:
   ssh_public_key:
-    title: "SSH Public Key"
-    description: "Public key to ssh into all provisioned compute instances."
-    type: string
+    type: oci:core:ssh:publickey
+    title: "Public SSH key"
+    description: "Public SSH key"
     required: true
 
   ad_name:

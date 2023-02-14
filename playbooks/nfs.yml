@@ -36,11 +36,11 @@
     selinux:
       state: disabled
 
-  - name: stop firewalld
+  - name: Stop firewalld
     ansible.builtin.include_role:
       name: firewall
 
-  - name: install packages
+  - name: Install packages
     ansible.builtin.include_role:
       name: packages
 
@@ -66,16 +66,6 @@
       name: res_files
     when: fs_ha|bool
   
-  # only for VMs - since they come up too quickly before stonith fencing completes.
-  - name: add 30s delay for VM instances for corosync service
-    lineinfile:
-      path: /usr/lib/systemd/system/corosync.service
-      insertbefore: 'ExecStart=/usr/share/corosync/corosync start'
-      line: 'ExecStartPre=/bin/sleep 30'
-      state: present
-      create: no
-    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
-
   - name: Configure NFS
     ansible.builtin.include_role:
       name: nfs_server
@@ -102,16 +92,10 @@
     ansible.builtin.include_role:
       name: firewall
 
-  - name: install packages
+  - name: Install packages
     ansible.builtin.include_role:
       name: packages
-
- 
-  - name: sleep for 60 seconds and continue with play
-    wait_for:
-      timeout: 60
-    delegate_to: localhost
   
-  - name: install packages
+  - name: Configure NFS client
     ansible.builtin.include_role:
       name: nfs_client

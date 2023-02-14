@@ -23,3 +23,13 @@
     owner: root
     group: root
     mode: 0644
+
+# only for VMs - since they come up too quickly before stonith fencing completes.
+- name: add 30s delay for VM instances for corosync service
+  lineinfile:
+    path: /usr/lib/systemd/system/corosync.service
+    insertbefore: 'ExecStart=/usr/share/corosync/corosync start'
+    line: 'ExecStartPre=/bin/sleep 30'
+    state: present
+    create: no
+  when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
