@@ -40,6 +40,7 @@ groupings:
     visible: true
     variables:
     - use_existing_vcn
+    - vcn_compartment
     - vcn_cidr
     - vcn_id
     - bastion_subnet_id
@@ -795,12 +796,22 @@ variables:
       not:
         - ${use_existing_vcn}
 
-  vcn_id:
-    type: string
-    title: "Existing VCN OCID"
-    description: "Existing VCN OCID"
+  vcn_compartment:
+    title: "VCN compartment"
+    type: oci:identity:compartment:id
     visible: ${use_existing_vcn}
+    default: ${targetCompartment}
     required: true
+  vcn_id:
+    type: oci:core:vcn:id
+    visible:
+      and:
+        - ${use_existing_vcn}
+    title: "Existing network"
+    default: ''
+    required: true
+    dependsOn:
+      compartmentId: ${vcn_compartment}
 
   bastion_subnet_id:
     type: string

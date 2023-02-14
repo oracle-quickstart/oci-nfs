@@ -19,6 +19,9 @@ variable fs_ha {
   default = "false"
 }
 
+variable vcn_compartment { 
+  default = ""
+}
 
 # To use existing VCN or new VCN.
 variable use_existing_vcn {
