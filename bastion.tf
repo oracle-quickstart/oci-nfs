@@ -203,10 +203,7 @@ resource "oci_core_instance" "storage_server" {
         tls_private_key.ssh.public_key_openssh
       ]
     )
-    user_data = base64encode(join("\n", list(
-      "#!/usr/bin/env bash",
-      "set -x",
-    )))
+    user_data           = base64encode(data.template_file.bastion_config.rendered)
   }
 
   dynamic "shape_config" {
