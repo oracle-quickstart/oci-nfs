@@ -34,7 +34,7 @@
     mount_point: "/mnt/{{ fs0_name }}"
     disk_name: disk0
   when:
-    - nvme_cnt | int > 0
+    - nvme_count.stdout | int > 0
 
 - block:
     - name: Configure HA storage
@@ -103,13 +103,13 @@
       lvg:
         vg: "vg_nfs_{{ disk_name }}"
         pvs: "{{ blk_lst.stdout_lines }}"
-      when: nvme_cnt | int == 0
+      when: nvme_count.stdout | int == 0
 
     - name: Create volume group nvme
       lvg:
         vg: "vg_nfs_{{ disk_name }}"
         pvs: "{{ nvme_lst.stdout_lines }}"
-      when: nvme_cnt | int > 0
+      when: nvme_count.stdout | int > 0
 
     - name: Create Logical volume
       lvol:
@@ -129,7 +129,7 @@
         opts: -i "{{ nvme_cnt.stdout }}" -I "{{ lvm_stripe_size }}"k
       ignore_errors: true
       when: 
-        - nvme_cnt | int > 1   
+        - nvme_count.stdout | int > 1   
 
     - name: Create Logical volume
       lvol:
@@ -139,7 +139,7 @@
       ignore_errors: true
       when:
         - blk_cnt.stdout|int == 1 or
-          nvme_cnt | int == 1
+          nvme_count.stdout | int == 1
  
     - name: Create file system
       filesystem:

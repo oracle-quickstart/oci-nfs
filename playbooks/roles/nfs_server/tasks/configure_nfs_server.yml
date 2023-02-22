@@ -79,7 +79,8 @@
         line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
       when: storage_server_dual_nics|bool == true
   when: 
-    - use_uhp|bool == true
+    - use_uhp|bool == true or
+      fs_type == "Scratch"      
 
 - block: 
     - name: Set facts for use_non_uhp_fs1
