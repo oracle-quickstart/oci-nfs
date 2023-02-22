@@ -28,6 +28,13 @@
   when:
     - fs_type == "Persistent"
     - use_non_uhp_fs3|bool == true
+    
+- name: Set mount point name fs0 nvme
+  ansible.builtin.set_fact:
+    mount_point: "/mnt/{{ fs0_name }}"
+    disk_name: disk0
+  when:
+    - nvme_cnt | int > 0
 
 - block:
     - name: Configure HA storage
