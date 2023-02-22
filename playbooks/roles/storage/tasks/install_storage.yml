@@ -1,6 +1,10 @@
-- name: Set facts
+- name: Get nvme count
   ansible.builtin.shell: ls /dev/* | grep nvme | grep n1 | wc -l
-  register: nvme_cnt
+  register: nvme_count
+
+- name: set vnme fact
+  ansible.builtin.set_fact:
+    nvme_cnt: "{{ nvme_count.stdout }}"
 
 - name: Set nfs thread count 
   ansible.builtin.lineinfile:
@@ -90,6 +94,7 @@
   when:
      - not fs_ha|bool
      - not use_uhp|bool
+     - nvme_cnt | int == 0
 
 - name: Find nvme disks
   block:
