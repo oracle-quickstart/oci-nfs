@@ -20,13 +20,15 @@
       state: mounted
     when: use_non_uhp_fs1|bool
 
-  - name: set nfsshare permissions
+  - name: Set nfsshare permissions
     become: true
     file:
       path: "{{ mount_point }}"
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: use_non_uhp_fs1|bool
@@ -54,6 +56,8 @@
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: use_non_uhp_fs1|bool
@@ -85,6 +89,8 @@
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: 
@@ -118,6 +124,8 @@
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: 
@@ -130,7 +138,7 @@
       path: "{{ mount_point }}/disk2"
       state: directory
     when: use_non_uhp_fs2|bool
-    
+
   - name: Mount NFSv3
     mount:
       path: "{{ mount_point }}/disk2"
@@ -147,6 +155,8 @@
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: use_non_uhp_fs2|bool
@@ -174,6 +184,8 @@
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: use_non_uhp_fs2|bool
@@ -201,6 +213,8 @@
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: use_non_uhp_fs3|bool
@@ -228,6 +242,8 @@
       state: directory
       owner: opc
       group: opc
+      mode: 0755
+      recurse: yes
     async: 30
     poll: 0
     when: use_non_uhp_fs3|bool
