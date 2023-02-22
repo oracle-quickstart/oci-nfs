@@ -8,11 +8,13 @@
   template:
     src: _corosync.j2
     dest: /home/opc/ha_config/corosync
+  when: fs_ha|bool
 
 - name: create corosync.conf with 1 ring
   template:
     src: _corosync.conf.1ring.j2
     dest: /home/opc/ha_config/corosync.conf
+  when: fs_ha|bool
 #    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
 
 #  - name: create corosync.conf with 2 rings
@@ -30,6 +32,7 @@
     owner: root
     group: root
     mode: 0644
+  when: fs_ha|bool
 
 # only for VMs - since they come up too quickly before stonith fencing completes.
 - name: add 30s delay for VM instances for corosync service

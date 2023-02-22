@@ -90,7 +90,7 @@
   when:
      - not fs_ha|bool
      - not use_uhp|bool
-     - nvme_count.stdout | int == 0
+     - nvme_count.stdout|int == 0
 
 - name: Find nvme disks
   block:
@@ -101,7 +101,7 @@
     - shell: ls /dev/* | grep nvme | grep n1 | wc -l
       register: nvme_cnt
 
-    - name: Process disks
+    - name: Process disks nvme
       ansible.builtin.include_tasks: process_disks.yml
   when:
-     - nvme_count.stdout | int > 0
+     - nvme_count.stdout|int > 0
