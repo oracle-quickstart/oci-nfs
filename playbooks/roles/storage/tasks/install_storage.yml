@@ -2,12 +2,15 @@
   ansible.builtin.shell: ls /dev/* | grep nvme | grep n1 | wc -l
   register: nvme_count
 
-- name: Set nfs thread count 
+- name: Set nfs thread count
   ansible.builtin.lineinfile:
     path: /etc/nfs.conf
     regexp: '^threads'
-    line: threads=16
-  when: 
+    line: '{{ item }}'
+  with_items:
+    - "[nfsd]"
+    - threads=16
+  when:
     - ansible_facts['processor_cores']*ansible_facts['processor_count'] > 16
 
 - name: update lvm.conf
