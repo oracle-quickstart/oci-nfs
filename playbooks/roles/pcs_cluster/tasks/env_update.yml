@@ -5,24 +5,25 @@
     - name: Get Node1 vnicId, dual_nic
       ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[1].vnicId' | sed 's/"//g'
       register: node1_vnic_d
-      when: storage_server_dual_nics|bool == true
+      when: storage_server_dual_nics|bool
     
     - name: Get Node1 vnicId, single_nic
       ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[0].vnicId' | sed 's/"//g'
       register: node1_vnic_s
       when: 
-        - storage_server_dual_nics|bool == false
-        - node1_vnic_d is not defined
+        - not storage_server_dual_nics|bool
 
     - set_fact:
         node1vnic: "{{ node1_vnic_d.stdout }}"
-      when: node1_vnic_d is defined
+      when: 
+        - node1_vnic_d is defined
+        - storage_server_dual_nics|bool
 
     - set_fact:
         node1vnic: "{{ node1_vnic_s.stdout }}"
-      when: 
-        - node1_vnic_d is not defined
-        - node1_vnic_d.stdout == ""
+      when:
+        - node1_vnic_s is defined
+        - not storage_server_dual_nics|bool
   when: ansible_hostname == NODE1
 
 - ansible.builtin.add_host: 
@@ -36,24 +37,25 @@
     - name: Get Node2 vnicId, dual_nic
       ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[1].vnicId' | sed 's/"//g'
       register: node2_vnic_d
-      when: storage_server_dual_nics|bool == true
+      when: storage_server_dual_nics|bool
 
     - name: Get Node2 vnicId, single nic
       ansible.builtin.shell: curl -s {{ MDATA_VNIC_URL }} | jq '.[0].vnicId' | sed 's/"//g'
       register: node2_vnic_s
       when: 
-        - storage_server_dual_nics|bool == false
-        - node2_vnic_d is not defined
+        - not storage_server_dual_nics|bool
     
     - set_fact:
         node2vnic: "{{ node2_vnic_d.stdout }}"
-      when: node1_vnic_d is defined
+      when: 
+        - node2_vnic_d is defined
+        - storage_server_dual_nics|bool
 
     - set_fact:
         node2vnic: "{{ node2_vnic_s.stdout }}"
       when:
-        - node2_vnic_d is not defined
-        - node2_vnic_d.stdout == ""
+        - not storage_server_dual_nics|bool
+        - node2_vnic_s is defined
         
     - name: Write node2vnic
       copy:
