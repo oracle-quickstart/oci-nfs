@@ -35,6 +35,7 @@
     disk_name: disk0
   when:
     - nvme_count.stdout|int > 0
+    - not fs_ha|bool
 
 - block:
     - name: Configure HA storage

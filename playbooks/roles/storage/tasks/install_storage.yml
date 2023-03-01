@@ -108,3 +108,4 @@
       ansible.builtin.include_tasks: process_disks.yml
   when:
      - nvme_count.stdout|int > 0
+     - not fs_ha|bool
