@@ -155,7 +155,7 @@ terraform apply
 	- nfs_source_path=/mnt/nfsshare/exports
 	- nfs_options= "vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev"
 
-Run **/opt/oci-hpc/bin/configure.sh
+Run **/opt/oci-hpc/bin/configure.sh**
 
 Edit the same variables in **/opt/oci-hpc/conf/variables.tf** for future clusters or autoscaling
 
