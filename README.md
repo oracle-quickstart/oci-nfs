@@ -149,12 +149,15 @@ terraform apply
 
 ### How to mount NFS-HA filesystem on HPC compute nodes
 #### Edit the following variables in /etc/ansible/hosts
-- add_nfs=true
-- nfs_target_path=/nfs/nfsha
-- nfs_source_IP=172.x.x.x
-- nfs_source_path=/mnt/nfsshare/exports
-- nfs_options= "vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev"
+	- add_nfs=true
+	- nfs_target_path=/nfs/nfsha
+	- nfs_source_IP=172.x.x.x
+	- nfs_source_path=/mnt/nfsshare/exports
+	- nfs_options= "vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev"
+
 #### Run /opt/oci-hpc/bin/configure.sh
+
+#### Edit the same variables in /opt/oci-hpc/conf/variables.tf for future clusters or autoscaling
 
 ## Grafana Dashboard for HA Cluster Resources (Corosync/Pacemaker)
 Optionally, this template can deploy a Grafana monitoring server and metrics collectors on all NFS-HA nodes to monitor HA Cluster resources.  It uses a dashboard from ClusterLabs.org.  
