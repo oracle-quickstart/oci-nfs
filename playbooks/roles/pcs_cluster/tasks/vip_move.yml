@@ -3,7 +3,7 @@
     path: /home/oracle-cli/
     state: directory
     owner: root
-    mode: 0755
+    mode: '0755'
 
 - name: Download install.sh
   ansible.builtin.get_url:
@@ -27,7 +27,7 @@
     state: directory
     owner: hacluster
     group: haclient
-    mode: 700
+    mode: '0700'
 
 - name: Get instance principal
   ansible.builtin.raw: /home/oracle-cli/bin/oci os ns get --auth instance_principal
@@ -37,7 +37,7 @@
     src: "{{ ha_config_dir }}/move_secip.sh"
     dest: /home/oracle-cli/move_secip.sh
     remote_src: yes
-    mode: 700
+    mode: '0700'
     owner: hacluster
     group: haclient
 
@@ -55,7 +55,7 @@
     dest: /var/lib/pacemaker/ip_move.sh
     remote_src: yes
     owner: root
-    mode: 0755
+    mode: '0755'
 
 - name: Create file pacemaker_ip_move.log
   ansible.builtin.file:
