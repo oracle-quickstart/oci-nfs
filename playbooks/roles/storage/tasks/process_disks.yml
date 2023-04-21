@@ -120,7 +120,7 @@
         opts: -i "{{ blk_cnt.stdout }}" -I "{{ lvm_stripe_size }}"k
       ignore_errors: true
       when: 
-        - blk_cnt.stdout|int > 1 
+        - blk_cnt.stdout|int >= 1 
 
     - name: Create Logical volume if disk is nvme
       lvol:
@@ -130,17 +130,7 @@
         opts: -i "{{ nvme_cnt.stdout }}" -I "{{ lvm_stripe_size }}"k
       ignore_errors: true
       when: 
-        - nvme_count.stdout|int > 1   
-
-    - name: Create Logical volume
-      lvol:
-        vg: "vg_nfs_{{ disk_name }}"
-        lv: "{{ disk_name }}"
-        size: 100%FREE
-      ignore_errors: true
-      when:
-        - blk_cnt.stdout|int == 1 or
-          nvme_count.stdout|int == 1
+        - nvme_count.stdout|int >= 1   
  
     - name: Create file system
       filesystem:
