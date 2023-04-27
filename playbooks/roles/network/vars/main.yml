@@ -1,0 +1,2 @@
+vnic_url: https://raw.githubusercontent.com/oracle/terraform-examples/master/examples/oci/connect_vcns_using_multiple_vnics/scripts/secondary_vnic_all_configure.sh
+vnic_sloc: /root/secondary_vnic_all_configure.sh

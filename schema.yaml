@@ -40,6 +40,7 @@ groupings:
     visible: true
     variables:
     - use_existing_vcn
+    - vcn_compartment
     - vcn_cidr
     - vcn_id
     - bastion_subnet_id
@@ -130,9 +131,9 @@ groupings:
 # Add variable here ,  if you want to do input validation or else it does not need to be included here.
 variables:
   ssh_public_key:
-    title: "SSH Public Key"
-    description: "Public key to ssh into all provisioned compute instances."
-    type: string
+    type: oci:core:ssh:publickey
+    title: "Public SSH key"
+    description: "Public SSH key"
     required: true
 
   ad_name:
@@ -795,40 +796,63 @@ variables:
       not:
         - ${use_existing_vcn}
 
-  vcn_id:
-    type: string
-    title: "Existing VCN OCID"
-    description: "Existing VCN OCID"
+  vcn_compartment:
+    title: "VCN compartment"
+    type: oci:identity:compartment:id
     visible: ${use_existing_vcn}
+    default: ${targetCompartment}
     required: true
 
+  vcn_id:
+    type: oci:core:vcn:id
+    visible:
+      and:
+        - ${use_existing_vcn}
+    title: "Existing network"
+    default: ''
+    required: true
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+
   bastion_subnet_id:
-    type: string
+    type: oci:core:subnet:id
     title: "Bastion Subnet OCID"
     description: "Bastion Subnet - Ensure the Subnet is in the same availability domain selected above or use regional subnet"
-    visible: ${use_existing_vcn}
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+      vcnId: ${vcn_id}
+      hidePrivateSubnet: false
+    visible: ${use_existing_vcn}  
     required: true
 
   storage_subnet_id:
-    type: string
+    type: oci:core:subnet:id
     title: "NFS Server Primary Subnet OCID"
     description: "Enter private subnet OCID to be used to deploy NFS servers. This will be the primary subnet used by the server to access boot/OS disk and network attached data Block Volumes. Ensure the Subnet is in the same availability domain selected above or use regional subnet.  Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+      vcnId: ${vcn_id}
+      hidePublicSubnet: true
     visible: ${use_existing_vcn}
     required: true
 
   fs_subnet_id:
-    type: string
+    type: oci:core:subnet:id
     title: "NFS Server Secondary Subnet OCID"
     description: "Only set this value, if you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers. Otherwise leave it blank. This 2nd private subnet OCID will be used to create a secondary VNIC using 2nd physical NIC.  For Baremetal nodes(except BM.HPC2.36), we need two subnets to use both physical NICs of the node for highest performance. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+      vcnId: ${vcn_id}
+      hidePublicSubnet: true
     visible: ${use_existing_vcn}
-    required: false
+    required: true
 
   ha_vip_private_ip:
     type: string
     title: "Private Virtual IP for HA (Highly Availability)"
     description: "Floating Virtual IP which gets assigned to an active node in an active/passive HA cluster. NFS clients will use this IP to connect to NFS cluster. If you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers, then provide an unused private IP from the 'secondary subnet'.  For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance.   If you plan to use VM .x or BM.HPC2.36 compute shapes for NFS file servers, then provide an unused private IP from 'primary subnet' to be used to install NFS servers. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
     required: true
-    default: "10.0.3.200"
+    default: "10.0.6.200"
     visible:
       and:
         - ${fs_ha}

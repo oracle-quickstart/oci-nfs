@@ -49,6 +49,9 @@ storage_server_dual_nics=${storage_server_dual_nics}
 private_fs_subnet_cidr_block=${private_fs_subnet_cidr_block}
 quorum_server_hostname=${quorum_server_hostname}
 install_monitor_agent=${install_monitor_agent}
+NODE1=${storage_server_hostname_prefix}1
+NODE2=${storage_server_hostname_prefix}2
+ha_config_dir=/home/opc/ha_config
 
 use_uhp=${use_uhp}
 

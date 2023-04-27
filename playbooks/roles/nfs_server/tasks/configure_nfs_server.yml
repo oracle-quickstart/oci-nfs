@@ -1,0 +1,192 @@
+- name: Update resolv.conf and ensure DNS lookups work from one private subnet to another subnet
+  lineinfile: 
+    dest: /etc/resolv.conf
+    line: '{{ item }}'
+  with_items:
+    - "search {{ storage_subnet_domain_name }} {{ filesystem_subnet_domain_name }} {{ vcn_domain_name }}"
+    - 'nameserver 169.254.169.254'
+
+- name: Ensure resolv.conf is immutable.
+  file:
+    path: /etc/resolv.conf
+    attr: i
+    
+- name: Calculate exportfs_client_spec_1_netmask
+  ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_1_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
+  register: exportfs_client_spec_1_netmask
+  delegate_to: localhost
+  run_once: true
+
+- name: Get exportfs_client_spec_1_network
+  ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_1_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
+  register: exportfs_client_spec_1_network
+  delegate_to: localhost
+  run_once: true
+
+- name: Get exportfs_client_spec_2_netmask
+  ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_2_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
+  register: exportfs_client_spec_2_netmask
+  delegate_to: localhost
+  run_once: true
+
+- name: Get exportfs_client_spec_2_network
+  ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_2_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
+  register: exportfs_client_spec_2_network
+  delegate_to: localhost
+  run_once: true
+
+- name: Set fact exportfs_client_spec_1 and exportfs_client_spec_2
+  ansible.builtin.set_fact:
+    exportfs_client_spec_1: "{{ exportfs_client_spec_1_network.stdout }}/{{ exportfs_client_spec_1_netmask.stdout }}"
+    exportfs_client_spec_2: "{{ exportfs_client_spec_2_network.stdout }}/{{ exportfs_client_spec_2_netmask.stdout }}"
+  delegate_to: localhost
+  run_once: true
+
+- block: 
+    - name: Get exportfs_client_spec_3_netmask
+      ansible.builtin.shell: "ipcalc -m {{ exportfs_client_spec_3_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
+      register: exportfs_client_spec_3_netmask
+
+    - name: exportfs_client_spec_2_network
+      ansible.builtin.shell: "ipcalc -n {{ exportfs_client_spec_3_cidr_block }} | gawk -F \"=\" \'{ print $2}\'"
+      register: exportfs_client_spec_3_network
+
+    - name: Set fact exportfs_client_spec_1 and exportfs_client_spec_3
+      ansible.builtin.set_fact:
+        exportfs_client_spec_3: "{{ exportfs_client_spec_3_network.stdout }}/{{ exportfs_client_spec_3_netmask.stdout }}"
+  delegate_to: localhost
+  run_once: true
+  when: storage_server_dual_nics|bool == true
+
+- block:
+    - name: set fact for UHP
+      ansible.builtin.set_fact:
+        filesystem_dir: "{{ fs0_dir }}"
+
+    - name: Update /etc/exports line1
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
+
+    - name: Update /etc/exports line2
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
+
+    - name: Update /etc/exports line3
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
+      when: storage_server_dual_nics|bool == true
+  when: 
+    - use_uhp|bool == true or
+      fs_type == "Scratch"      
+
+- block: 
+    - name: Set facts for use_non_uhp_fs1
+      ansible.builtin.set_fact:
+        filesystem_dir: "{{ fs1_dir }}"
+
+    - name: Update /etc/exports line1
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
+
+    - name: Update /etc/exports line2
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
+
+    - name: Update /etc/exports line3
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
+      when: storage_server_dual_nics|bool == true
+  when:
+    - use_non_uhp_fs1|bool == true
+
+- block:
+    - name: Set facts for use_non_uhp_fs2
+      ansible.builtin.set_fact:
+        filesystem_dir: "{{ fs2_dir }}"
+
+    - name: Update /etc/exports line1
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
+
+    - name: Update /etc/exports line2
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
+
+    - name: Update /etc/exports line3
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
+      when: storage_server_dual_nics|bool == true
+  when:
+    - use_non_uhp_fs2|bool == true
+
+- block:
+    - name: Set facts for use_non_uhp_fs3
+      ansible.builtin.set_fact:
+        filesystem_dir: "{{ fs3_dir }}"
+
+    - name: Update /etc/exports line1
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_1 }}{{ options }}"
+
+    - name: Update /etc/exports line2
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_2 }}{{ options }}"
+
+    - name: Update /etc/exports line3
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "{{ filesystem_dir }}/exports {{ exportfs_client_spec_3 }}{{ options }}"
+      when: storage_server_dual_nics|bool == true
+  when:
+    - use_non_uhp_fs3|bool == true
+
+- name: Restart nfs-server.service 
+  ansible.builtin.service:
+    name: nfs-server
+    state: restarted
+    enabled: true
+
+- name: Re-export the share
+  ansible.builtin.command: exportfs -rav
+  when: 
+    - fs_ha|bool == false
+
+- block:
+    - name: Update SSH keys
+      ansible.builtin.copy:
+        src: /home/opc/.ssh/authorized_keys
+        dest: /root/.ssh/authorized_keys
+        backup: yes
+        remote_src: yes
+
+    - name: Update id_rsa
+      ansible.builtin.copy:
+        src: /home/opc/.ssh/id_rsa
+        dest: /root/.ssh/id_rsa
+        backup: yes
+        remote_src: yes
+
+    - name: Create cron job to rsync files every 1 minute from Node1 to Node2
+      ansible.builtin.cron:
+        name: exports
+        job: /bin/rsync -avziu -e ssh  /etc/exports root@${{ NODE2 }}:/etc/exports
+    - ansible.builtin.cron:
+        name: projid
+        job: /bin/rsync -avziu -e ssh  /etc/projid root@${{ NODE2 }}:/etc/projid
+    - ansible.builtin.cron:
+        name: projects
+        job: /bin/rsync -avziu -e ssh  /etc/projects root@${{ NODE2 }}:/etc/projects
+  when: 
+    - fs_ha|bool == true
+    - inventory_hostname == NODE1

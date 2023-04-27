@@ -1,0 +1,36 @@
+- name: Download secondary_vnic_all_configure
+  ansible.builtin.get_url:
+    url: "{{ vnic_url }}"
+    dest: "{{ vnic_sloc }}"
+    mode: '0755'
+
+- name: Create unit file
+  template:
+    src: secondnic.service.j2
+    dest: /etc/systemd/system/secondnic.service
+    mode: 0644
+
+- name: Restart service secondnic, in all cases, also issue daemon-reload to pick up config changes
+  ansible.builtin.systemd:
+    name: secondnic
+    daemon_reload: yes
+    state: started
+    enabled: yes
+
+- name: Get vNIC count
+  ansible.builtin.shell: /bin/bash /root/secondary_vnic_all_configure.sh | grep ocid1.vnic. | grep UP | wc -l
+  register: vnic_count
+
+- name: Get Private IP assigned
+  ansible.builtin.shell: curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g'
+  register: private_ip
+
+- name: Get Interface name
+  ansible.builtin.shell: ip addr | grep -B2 {{ private_ip.stdout }} | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'
+  register: private_interface
+ 
+- name: Restart secondnic service until vNIC is up
+  ansible.builtin.service:
+    state: restarted
+    name: secondnic
+  when: vnic_count.stdout|int <= 1 or vnic_count.rc|int != 0 or private_interface.stdout | length == 0

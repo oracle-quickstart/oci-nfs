@@ -1,0 +1,83 @@
+
+- name: Install Prometheus Node Exporter for IaaS metrics
+  ansible.builtin.unarchive:
+    src: "{{ node_exporter }}"
+    dest: /opt/
+    remote_src: yes
+
+- name: Create unit file node_exporter.service
+  template:
+    src: node_exporter.service.j2
+    dest: /lib/systemd/system/node_exporter.service
+    mode: 0644
+
+- name: Restart service ha_cluster_exporter, also issue daemon-reload to pick up config changes
+  ansible.builtin.systemd:
+    name: node_exporter
+    daemon_reload: yes
+    state: started
+    enabled: yes
+
+- name: Install git and glibc
+  ansible.builtin.yum:
+    name:
+      - git
+      - glibc.i686
+
+- name: Install Prometheus Node Exporter for IaaS metrics
+  ansible.builtin.unarchive:
+    src: "{{ node_exporter }}"
+    dest: /opt/
+    remote_src: yes
+
+- name: Install go
+  ansible.builtin.unarchive:
+    src: "{{ go_url }}"
+    dest: /usr/local
+    remote_src: yes
+
+- name: Update bashrc
+  copy:
+    dest: "/root/.bashrc"
+    content: |
+      export GOROOT="/usr/local/go"
+      export GOBIN="$HOME/go/bin"
+      mkdir -p $GOBIN
+      export PATH=$PATH:$GOROOT/bin:$GOBIN
+
+- name: Create symbolic link 
+  file:
+    src: "{{ GOROOT_BIN }}/go"
+    dest: "/bin/go"
+    state: link
+
+- name: Get mockgen
+  ansible.builtin.shell: "{{ item }}"
+  with_items:
+    - source /root/.bashrc
+    - go env -w GO111MODULE=auto
+    - go version
+    - go get github.com/golang/mock/mockgen
+
+- name: Git clone ha_cluster_exporter
+  ansible.builtin.git:
+    repo: "{{ ha_cluster_exporter }}"
+    dest: /tmp/ha_cluster_exporter
+
+- name: Install ha_cluster_exporter
+  make:
+    chdir: /tmp/ha_cluster_exporter
+    target: install
+
+- name: Create unit file ha_cluster_exporter.service
+  template:
+    src: ha_cluster_exporter.service.j2
+    dest: /lib/systemd/system/ha_cluster_exporter.service
+    mode: 0644
+
+- name: Restart service ha_cluster_exporter, also issue daemon-reload to pick up config changes
+  ansible.builtin.systemd:
+    name: ha_cluster_exporter
+    daemon_reload: yes
+    state: started
+    enabled: yes

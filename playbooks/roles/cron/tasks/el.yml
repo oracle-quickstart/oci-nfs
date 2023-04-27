@@ -1,0 +1,6 @@
+- name: Restart service cron, in all cases, also issue daemon-reload to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: crond
+  when: fs_ha|bool

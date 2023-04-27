@@ -1,5 +1,3 @@
-
-
 - hosts: quorum
   become: true
   pre_tasks:
@@ -12,19 +10,18 @@
   - name: Disable SELinux
     selinux:
       state: disabled
-  - name: stop firewalld
-    service:
-      name: firewalld
-      state: stopped
-      enabled: no
-    async: 30
-    poll: 0
-  - name: create install_quorum_ha_config.sh file
-    template:
-      src: _install_quorum_ha_config.sh.j2
-      dest: /home/opc/install_quorum_ha_config.sh
-  - name: execute install_quorum_ha_config.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_quorum_ha_config.sh"
+
+  - name: Stop firewalld
+    ansible.builtin.include_role:
+      name: firewall
+
+  - name: Install packages
+    ansible.builtin.include_role:
+      name: packages
+
+  - name: Configure corosync-qnetd
+    ansible.builtin.include_role:
+      name: quorum
 
 - hosts: storage
   become: true
@@ -38,134 +35,45 @@
   - name: Disable SELinux
     selinux:
       state: disabled
-  - name: stop firewalld
-    service:
-      name: firewalld
-      state: stopped
-      enabled: no
-    async: 30
-    poll: 0
-  - name: install nfs_utils
-    become: true
-    yum:
-      name:
-        - nfs-utils
-        - nfs4-acl-tools
-      lock_timeout: 180
-  - name: create configure_vnic.sh file
-    template:
-      src: _configure_vnic.sh.j2
-      dest: /home/opc/configure_vnic.sh
-  - name: execute configure_vnic.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/configure_vnic.sh"
-  - name: update lvm.conf
-    command: bash -c "sudo sed -i 's/system_id_source = \"none\"/system_id_source = \"uname\"/g' /etc/lvm/lvm.conf"
+
+  - name: Stop firewalld
+    ansible.builtin.include_role:
+      name: firewall
+
+  - name: Install packages
+    ansible.builtin.include_role:
+      name: packages
+
+  - name: Configure Network
+    ansible.builtin.include_role:
+      name: network
     
-  - name: disable auto_activation_volume in lvm.conf
-    lineinfile:
-      path: /etc/lvm/lvm.conf
-      insertbefore: '# Configuration option activation/read_only_volume_list'
-      line: 'auto_activation_volume_list = []'
-      state: present
-      create: no
-      
-  - name: create nfs_install_storage.sh file
-    template:
-      src: _nfs_install_storage.sh.j2
-      dest: /home/opc/nfs_install_storage.sh
-  - name: execute nfs_install_storage.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/nfs_install_storage.sh"
-    run_once: true
-  - name: create /home/opc/ha_config directory
-    become: true
-    file:
-      path: /home/opc/ha_config
-      state: directory
-    when: fs_ha|bool
-  - name: create corosync file
-    template:
-      src: _corosync.j2
-      dest: /home/opc/ha_config/corosync
-    when: fs_ha|bool
-#  - name: create corosync.conf with 2 rings
-#    template:
-#      src: _corosync.conf.2ring.j2
-#      dest: /home/opc/ha_config/corosync.conf
-#    when: (fs_ha|bool and {{ storage_server_dual_nics }})|default(false)|bool
-  - name: create corosync.conf with 1 ring
-    template:
-      src: _corosync.conf.1ring.j2
-      dest: /home/opc/ha_config/corosync.conf
-    when: fs_ha|bool
-#    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
-  - name: create logrotate.d corosync file
-    template:
-      src: _logrotate.d_corosync.j2
-      dest: /etc/logrotate.d/corosync
-      force: true
-      backup: true
-      owner: root
-      group: root
-      mode: 0644
-    when: fs_ha|bool
-  - name: Restart service cron, in all cases, also issue daemon-reload to pick up config changes
-    systemd:
-      state: restarted
-      daemon_reload: yes
-      name: crond
+  - name: Configure Storage
+    ansible.builtin.include_role:
+      name: storage
+
+  - name: Configure corosync
+    ansible.builtin.include_role:
+      name: corosync
     when: fs_ha|bool
 
-  - name: create ip_move.sh file
-    template:
-      src: _ip_move.sh.j2
-      dest: /home/opc/ha_config/ip_move.sh
-    when: fs_ha|bool
-  - name: create move_secip.sh file
-    template:
-      src: _move_secip.sh.j2
-      dest: /home/opc/ha_config/move_secip.sh
-    when: fs_ha|bool
-  - name: create pcmk file
-    template:
-      src: _pcmk.j2
-      dest: /home/opc/ha_config/pcmk
-    when: fs_ha|bool
-  - name: create install_ha_rpms.sh file
-    template:
-      src: _install_ha_rpms.sh.j2
-      dest: /home/opc/install_ha_rpms.sh
-    when: fs_ha|bool
-  - name: execute install_ha_rpms.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_ha_rpms.sh"
-    when: fs_ha|bool
+  - name: Restart cron
+    ansible.builtin.include_role:
+      name: cron
 
-  # only for VMs - since they come up too quickly before stonith fencing completes.
-  - name: add 30s delay for VM instances for corosync service
-    lineinfile:
-      path: /usr/lib/systemd/system/corosync.service
-      #regexp: 'ExecStart=/usr/share/corosync/corosync start'
-      insertbefore: 'ExecStart=/usr/share/corosync/corosync start'
-      line: 'ExecStartPre=/bin/sleep 30'
-      state: present
-      create: no
-    when: (fs_ha|bool and (not {{ storage_server_dual_nics }}))|default(false)|bool
-
-#  - name: create tuning.sh file
-#    template:
-#      src: _tuning.sh.j2
-#      dest: /home/opc/tuning.sh
-#  - name: execute tuning.sh
-#    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning.sh"
-
-  - name: create install_ha_config.sh file
-    template:
-      src: _install_ha_config.sh.j2
-      dest: /home/opc/install_ha_config.sh
+  - name: Configure cluster resource files
+    ansible.builtin.include_role:
+      name: res_files
     when: fs_ha|bool
-  - name: execute install_ha_config.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/install_ha_config.sh"
-    when: fs_ha|bool
+  
+  - name: Configure NFS
+    ansible.builtin.include_role:
+      name: nfs_server
 
+  - name: Configure HA service
+    ansible.builtin.include_role:
+      name: pcs_cluster
+    when: fs_ha|bool
 
 - hosts: compute
   become: true
@@ -179,237 +87,15 @@
   - name: Disable SELinux
     selinux:
       state: disabled
+      
   - name: stop firewalld
-    service:
-      name: firewalld
-      state: stopped
-      enabled: no
-    async: 30
-    poll: 0
-  - name: install nfs_utils
-    become: true
-    yum:
-      name:
-        - nfs-utils
-        - nfs4-acl-tools
-      lock_timeout: 180
-  - name: create nfs_install_client.sh file
-    template:
-      src: _nfs_install_client.sh.j2
-      dest: /home/opc/nfs_install_client.sh
-  - name: execute nfs_install_client.sh
-    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/nfs_install_client.sh"
-  - name: sleep for 60 seconds and continue with play
-    wait_for:
-      timeout: 60
-    delegate_to: localhost
+    ansible.builtin.include_role:
+      name: firewall
 
-#  - name: create tuning_client.sh file
-#    template:
-#      src: _tuning_client.sh.j2
-#      dest: /home/opc/tuning_client.sh
-#  - name: execute tuning_client.sh
-#    command: bash -c "chmod +x /home/opc/*.sh ; sudo /home/opc/tuning_client.sh"
-
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}"
-      state: directory
-    when: use_non_uhp_fs1|bool
-  - name: Mount NFSv3
-    mount:
-      path: "{{ mount_point }}"
-      src: "{{ nfs_server_ip }}:{{ fs1_dir }}/exports"
-      fstype: nfs
-      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_non_uhp_fs1|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_non_uhp_fs1|bool
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}v4"
-      state: directory
-    when: use_non_uhp_fs1|bool
-  - name: Mount NFSv4
-    mount:
-      path: "{{ mount_point }}v4"
-      src: "{{ nfs_server_ip }}:{{ fs1_dir }}/exports"
-      fstype: nfs
-      opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_non_uhp_fs1|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}v4"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_non_uhp_fs1|bool
-
-
-
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}/uhp"
-      state: directory
-    when: use_uhp|bool
-
-  - name: Mount NFSv3
-    mount:
-      path: "{{ mount_point }}/uhp"
-      src: "{{ nfs_server_ip }}:{{ fs0_dir }}/exports"
-      fstype: nfs
-      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_uhp|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}/uhp"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_uhp|bool
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}/uhp_v4"
-      state: directory
-    when: use_uhp|bool
-  - name: Mount NFSv4
-    mount:
-      path: "{{ mount_point }}/uhp_v4"
-      src: "{{ nfs_server_ip }}:{{ fs0_dir }}/exports"
-      fstype: nfs
-      opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_uhp|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}/uhp_v4"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_uhp|bool
-
-
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}/disk2"
-      state: directory
-    when: use_non_uhp_fs2|bool
-  - name: Mount NFSv3
-    mount:
-      path: "{{ mount_point }}/disk2"
-      src: "{{ nfs_server_ip }}:{{ fs2_dir }}/exports"
-      fstype: nfs
-      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_non_uhp_fs2|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}/disk2"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_non_uhp_fs2|bool
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}/disk2_v4"
-      state: directory
-    when: use_non_uhp_fs2|bool
-  - name: Mount NFSv4
-    mount:
-      path: "{{ mount_point }}/disk2_v4"
-      src: "{{ nfs_server_ip }}:{{ fs2_dir }}/exports"
-      fstype: nfs
-      opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_non_uhp_fs2|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}/disk2_v4"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_non_uhp_fs2|bool
-
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}/disk3"
-      state: directory
-    when: use_non_uhp_fs3|bool
-  - name: Mount NFSv3
-    mount:
-      path: "{{ mount_point }}/disk3"
-      src: "{{ nfs_server_ip }}:{{ fs3_dir }}/exports"
-      fstype: nfs
-      opts: vers=3,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_non_uhp_fs3|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}/disk3"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_non_uhp_fs3|bool
-  - name: create nfs mount_point directory
-    become: true
-    file:
-      path: "{{ mount_point }}/disk3_v4"
-      state: directory
-    when: use_non_uhp_fs3|bool
-  - name: Mount NFSv4
-    mount:
-      path: "{{ mount_point }}/disk3_v4"
-      src: "{{ nfs_server_ip }}:{{ fs3_dir }}/exports"
-      fstype: nfs
-      opts: vers=4,defaults,noatime,nodiratime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev
-      state: mounted
-    when: use_non_uhp_fs3|bool
-  - name: set nfsshare permissions
-    become: true
-    file:
-      path: "{{ mount_point }}/disk3_v4"
-      state: directory
-      owner: opc
-      group: opc
-    async: 30
-    poll: 0
-    when: use_non_uhp_fs3|bool
-
-
-
+  - name: Install packages
+    ansible.builtin.include_role:
+      name: packages
+  
+  - name: Configure NFS client
+    ansible.builtin.include_role:
+      name: nfs_client

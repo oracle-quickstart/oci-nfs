@@ -1,0 +1,11 @@
+--- 
+- include_tasks: "{{ item }}"
+  with_items:
+    - env_update.yml
+    - install_ha_config.yml
+    - vip_move.yml
+    - configure_stonith.yml
+    - configure_pcs_cluster.yml
+    - add_lvm_activate_resources.yml
+    - add_filesystem_resources.yml
+    - configure_nfsgroup_nfs_resources.yml

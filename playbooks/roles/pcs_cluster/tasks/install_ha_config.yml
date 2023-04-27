@@ -1,0 +1,212 @@
+  - name: Get Node1 IP
+    set_fact:
+       NODE1_IP: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+    when: inventory_hostname == NODE1
+
+  - name: Get Node2 IP
+    set_fact:
+       NODE1_IP: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+    when: inventory_hostname == NODE2
+
+  - name: Install pcs pacemaker corosync
+    ansible.builtin.yum:
+      name:
+        - pcs
+        - pacemaker
+        - corosync
+        - fence-agents-sbd
+        - sbd
+        - corosync-qdevice
+      state: latest
+
+  - name: Make sure an entry in /etc/hosts exists
+    lineinfile:
+      path: /etc/hosts
+      regexp: "^{{ ansible_default_ipv4.address }}"
+      line: "{{ ansible_default_ipv4.address }} {{ ansible_fqdn }} {{ ansible_hostname }} {{ inventory_hostname }}"
+      state: present
+
+  - name: Generate keys
+    shell:  corosync-keygen -l
+    when: inventory_hostname == NODE1
+
+  - name: Fetch keys from "{{ NODE1 }}"
+    fetch:
+      src: /etc/corosync/authkey
+      dest: /tmp/
+      flat: yes
+    when: inventory_hostname == NODE1 
+
+  - name: Copy keys to "{{ NODE2 }}"
+    copy:
+      src: /tmp/authkey
+      dest: /etc/corosync/authkey
+    when: inventory_hostname == NODE2
+  
+  - name: Enable and start PCSD service
+    service:
+      name: 'pcsd'
+      enabled: true
+      state: 'started'
+    when: ("'storage' in group_names") or ("'quorum' in group_names")
+ 
+  - name: Configure password for hacluster user
+    ansible.builtin.user:
+      name: hacluster
+      password: "{{ hacluster_user_password | password_hash('sha512') }}"
+
+  - name: Authenticate the cluster nodes
+    ansible.builtin.command: pcs cluster auth -u hacluster -p "{{ hacluster_user_password }}" "{{ ansible_hostname }}"
+    register: pcs_auth
+
+  - name: Check quorum device status
+    ansible.builtin.debug:
+      var: pcs_auth.stdout
+    failed_when:
+      - pcs_auth != 0
+      - "'Authorized' not in pcs_auth.stdout"
+
+  - name: Copy corosync.conf 
+    ansible.builtin.copy:
+      src: "{{ ha_config_dir }}/corosync.conf" 
+      dest: /etc/corosync/
+      remote_src: yes
+      owner: root
+
+  - name: Update corosync.conf for "{{ NODE1 }}"
+    replace:
+      path: /etc/corosync/corosync.conf
+      regexp: 'NODE1'
+      replace: "{{ NODE1 }}"
+
+  - name: Update corosync.conf for "{{ NODE2 }}"
+    replace:
+      path: /etc/corosync/corosync.conf
+      regexp: 'NODE2'
+      replace: "{{ NODE2 }}"
+
+  - name: Create /etc/corosync/service.d/
+    file:
+      path: /etc/corosync/service.d
+      state: directory
+
+  - name: Update pcmk
+    ansible.builtin.copy:
+      src: "{{ ha_config_dir }}/pcmk"
+      dest: /etc/corosync/service.d/
+      remote_src: yes
+      owner: root
+
+  - name: Update corosync
+    ansible.builtin.copy:
+      src: "{{ ha_config_dir }}/corosync"
+      dest: /etc/corosync/service.d/
+      remote_src: yes
+      owner: root
+      backup: yes
+
+  - name: Create /var/log/corosync
+    file:
+      path: /var/log/corosync
+      state: directory
+
+  - name: Start corosync service
+    ansible.builtin.systemd:
+      name: corosync
+      state: started
+      enabled: yes
+
+  - name: Waiting for auth key
+    ansible.builtin.wait_for:
+      path: /etc/corosync/authkey
+    when: inventory_hostname == NODE2
+
+  - name: Start corosync service
+    ansible.builtin.systemd:
+      name: corosync
+      state: started
+      enabled: yes
+
+  - name: Wait for corosync to be online on node 2
+    ansible.builtin.shell: systemctl status  corosync  | grep "(running)"
+    register: cs_stat_n2
+    when: inventory_hostname == NODE2
+
+  - name: Write to file
+    local_action:
+      module: copy
+      content: "{{cs_stat_n2.stdout}}"
+      dest: /tmp/nodestat
+    when: inventory_hostname == NODE2
+
+  - name: Wait for node2
+    ansible.builtin.wait_for:
+      path: /tmp/nodestat
+      search_regex: running
+    delegate_to: localhost
+
+  - name: View cluster members
+    ansible.builtin.shell: corosync-cmapctl | grep members
+    register: coro_members
+
+  - name: Show cluster members
+    ansible.builtin.debug:
+      var: coro_members.stdout
+
+  - name: Start pcsd service
+    ansible.builtin.systemd:
+      name: pcsd
+      state: started
+      enabled: yes
+
+  - name: Wait for pcsd to be online on node 2
+    ansible.builtin.shell: systemctl status pcsd | grep "(running)"
+    register: pcsd_stat_n2
+    when: inventory_hostname == NODE2
+
+  - name: Write pcsd status to file
+    local_action:
+      module: copy
+      content: "{{cs_stat_n2.stdout}}"
+      dest: /tmp/pcsdstat
+    when: inventory_hostname == NODE2
+
+  - name: Wait for node2
+    ansible.builtin.wait_for:
+      path: /tmp/pcsdstat
+      search_regex: running
+    delegate_to: localhost
+  
+  - name: Create oracle-cli
+    file:
+      path: /home/oracle-cli/
+      state: directory
+      owner: root
+      mode: 0755
+ 
+  - name: Download install.sh
+    ansible.builtin.get_url:
+      url: https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+      dest: /home/oracle-cli/
+      mode: '0755'
+  
+  - name: Run install.sh
+    ansible.builtin.shell: /home/oracle-cli/install.sh --accept-all-defaults --exec-dir /home/oracle-cli/bin/ --install-dir /home/oracle-cli/lib/
+    
+  - name: Remove install.sh
+    file:
+      path: 
+        - /home/oracle-cli/install.sh
+        - /root/bin/oci-cli-scripts
+      state: absent
+
+  - name: Create directory /home/oracle-cli/.oci
+    file: 
+      path: /home/oracle-cli/.oci
+      state: directory
+      owner: hacluster 
+      group: haclient
+      mode: 700
+
+  - name: Get instance_principal
+    ansible.builtin.raw: /home/oracle-cli/bin/oci os ns get --auth instance_principal

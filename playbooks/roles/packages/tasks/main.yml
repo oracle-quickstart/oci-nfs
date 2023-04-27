@@ -1,0 +1,13 @@
+- include: quorum.yml
+  when:
+    - "'quorum' in group_names"
+    - fs_ha|bool
+
+
+- include: cluster.yml
+  when:  
+    - "'storage' in group_names"
+    - fs_ha|bool
+
+- include: client.yml
+  when: "'compute' in group_names"
