@@ -1,0 +1,34 @@
+---
+- name: Check configured NFS server resource
+  ansible.builtin.command: "pcs resource config {{ pacemaker_nfs_resource_name }}"
+  register: nfs_resource_check
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Create NFS server resource in the NFS resource group
+  ansible.builtin.command: >-
+    pcs resource create {{ pacemaker_nfs_resource_name }} ocf:heartbeat:nfsserver
+    nfs_shared_infodir={{ pacemaker_nfs_shared_infodir }}
+    nfs_no_notify=true
+    op monitor interval=20s timeout=40s
+    op start interval=0s timeout=40s
+    op stop interval=0s timeout=90s
+    --group {{ pacemaker_nfs_resource_group }}
+  when: nfs_resource_check.rc != 0
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+# Keep the resource-agent operation values explicit for both newly created and
+# existing clusters. This avoids behavior changing with a resource-agents RPM
+# update that changes the nfsserver metadata defaults.
+- name: Configure explicit NFS server resource operation timeouts
+  ansible.builtin.command: >-
+    pcs resource update {{ pacemaker_nfs_resource_name }}
+    op monitor interval=20s timeout=40s
+    op start interval=0s timeout=40s
+    op stop interval=0s timeout=90s
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

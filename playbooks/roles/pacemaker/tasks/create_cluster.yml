@@ -1,0 +1,53 @@
+---
+- name: Check whether the cluster is configured
+  ansible.builtin.stat:
+    path: /etc/corosync/corosync.conf
+  register: pacemaker_cluster_config
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Check whether Pacemaker is running
+  ansible.builtin.command: systemctl is-active pacemaker
+  register: pacemaker_service
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Configure or start cluster
+  delegate_to: "{{ pacemaker_primary_node }}"
+  run_once: true
+  block:
+    - name: Setup and start cluster
+      ansible.builtin.command: "pcs cluster setup ha_nfs {{ cluster_setup_string }} --start"
+      vars:
+        cluster_setup_string: >-
+          {%- for host in groups['storage'] %}
+          {{ hostvars[host].inventory_hostname }} addr={{ hostvars[host].ansible_host }}
+          {% endfor -%}
+      when: not pacemaker_cluster_config.stat.exists
+
+    - name: Start an existing stopped cluster
+      ansible.builtin.command: pcs cluster start --all --request-timeout=180
+      when:
+        - pacemaker_cluster_config.stat.exists
+        - pacemaker_service.rc != 0
+
+- name: Wait for expected storage nodes to become online
+  cluster_info:
+  register: cluster_info
+  changed_when: false
+  retries: 18
+  delay: 5
+  until:
+    - cluster_info.connected | bool
+    - is_each_node_configured | bool
+    - is_each_node_online | bool
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Enable cluster services to start on boot
+  ansible.builtin.command: pcs cluster enable --all
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

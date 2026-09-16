@@ -1,10 +1,10 @@
 # oci-nfs
 
-oci-nfs template is a solution to deploy NFS server in an active/passive High Availability (HA) cluster or a single node NFS server. For NFS with HA, the solution provisions two NFS servers and one Quorum node. For HA, the solution utilizes open source corosync/pacemaker cluster services along with corosync qdevice for quorum on Quorum node. OCI's Shared (Multi-attach) Block Volume Storage saves 50% in storage cost versus traditional DRBD (Distributed Replicated Block Device) replication across 2 servers for high availability. The solution also allows you to deploy a singe node NFS server,  using either local NVMe SSDs or network attached Block volumes.  Optionally,  with the template, you can deploy NFS client nodes too.   
+oci-nfs template is a solution to deploy NFS server in an active/passive High Availability (HA) cluster. For NFS with HA, the solution provisions two NFS servers and one Quorum node. For HA, the solution utilizes open source corosync/pacemaker cluster services along with corosync qdevice for quorum on Quorum node. OCI's Shared (Multi-attach) Block Volume Storage saves 50% in storage cost versus traditional DRBD (Distributed Replicated Block Device) replication across 2 servers for high availability. The solution also allows you to deploy a singe node NFS server,  using either local NVMe SSDs or network attached Block volumes.  Optionally,  with the template, you can deploy NFS client nodes too.   
 
 OCI NFS solution supports both NFSv3 and NFSv4.   
 
-![Bare metal Standard (BM.Standard* )compute nodes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm#baremetalshapes__bm-standard) come with 2 physical NICs (2x25Gbps or 2x50Gbps). To get best performance,  network bandwidth of both NICs can be used by creating 2 private subnets.  One subnet (private-storage) is used for data transfer between NFS server and OCI Block Volumes (disks) and second subnet (private-fs) is used for data transfer between NFS clients and NFS server.   
+[Bare metal Standard (BM.Standard* )compute nodes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm#baremetalshapes__bm-standard) come with 2 physical NICs (2x25Gbps or 2x50Gbps). To get best performance,  network bandwidth of both NICs can be used by creating 2 private subnets.  One subnet (private-storage) is used for data transfer between NFS server and OCI Block Volumes (disks) and second subnet (private-fs) is used for data transfer between NFS clients and NFS server.   
 
 HA Stonith Fencing:  We use SBD (Split Brain Detection) fencing agent to protect the cluster against split brain and data corruption. SBD fencing requires a shared disk (different from NFS data disks)  attached to both NFS server nodes.  The template provisions the fencing shared disk and configures it. 
 
@@ -13,10 +13,10 @@ Quorum Node:  Using just 2 nodes in production is not recommended, since it has 
 
 | Resource Type | Mandatory |         Resource Count         | Resource Details  |  Comments |
 | :---: | :---: | :---: | :--- | :--- | 
-| NFS Servers: Compute | Yes |  2   | Bare Metal Compute shapes are recommended for best performance, since they come with 2 physical NICs.  BM.Standard2.52 &  BM.Standard.E2.64 have 2x25Gbps.  BM.Standard.E3.128/BM.Standard.E4.128 comes with 2x50Gbps. VMs are also supported.  | NFS HA cluster - min/max: 2.  Single node NFS - min/max: 1 |
-| Quorum Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard2.1/2.2/.E2.1/.E2.2  | Required only for HA solution, not for single node NFS server. | 
-| Stonith SBD Fencing Disk: OCI Block Volumes (/dev/oracleoci/oraclevdb) | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  | Required only for HA solution, not for single node NFS. |
-| Data Volumes:  OCI Block Volumes | Yes |  Max: 31  | HA solution: Shared Disk/Multi-attach Data Block Volume are attached to both NFS Server nodes.  Create a Volume Group of all Data Volumes and an LVM using the Volume Group with Striping.  Maximum LVM capacity: 31x32TB = 992TB.  Each Data Volume Capacity: min: 50GB, Max: 32TB. Single node NFS server:  32x32TB=1PB. | NFS HA cluster - min:1 , max: 31.  Single node NFS - min:1 , max: 32 |
+| NFS Servers: Compute | Yes |  2   | BM.Standard4.Ax.120 (2 × 100 Gbps physical NICs). It is the newest current x86 bare-metal standard shape that retains two physical NICs. Current alternatives: BM.Standard3.64 or BM.Standard.E4.128 (2 × 50 Gbps). BM.Standard.E5.192 and BM.Standard.E6.256 provide 100/200 Gbps respectively, but each has one physical NIC. VMs are supported where bare-metal performance and physical NIC separation are not required; use VM.Standard.E6.Flex sized for workload.  | NFS HA cluster - min/max: 2.|
+| Quorum Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard2.1/2.2/.E2.1/.E2.2  |  | 
+| Stonith SBD Fencing Disk: OCI Block Volumes (/dev/oracleoci/oraclevdb) | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  |  |
+| Data Volumes:  OCI Block Volumes | Yes |  Max: 31  | HA solution: Shared Disk/Multi-attach Data Block Volume are attached to both NFS Server nodes.  Create a Volume Group of all Data Volumes and an LVM using the Volume Group with Striping.  Maximum LVM capacity: 31x32TB = 992TB.  Each Data Volume Capacity: min: 50GB, Max: 32TB. | NFS HA cluster - min:1 , max: 31.|
 | Client Node: Compute | No |  min:0  | Recommend provisioning 1 client node to test mounting of the filesystem.  For production, select compute shape based on performance requirements.  | |
 | Bastion Node: Compute | Yes |  1  | VM.Standard2.2 is the default shape for Bastion.  | |
 
@@ -35,14 +35,6 @@ Bare metal nodes comes with 2 physical NICs (2x25Gbps). To get best performance,
 
 ![](./images/Quorum_w_BM_NFS_Active_Passive_HA_High_Level_Arch.png)
 
-### Virtual Machines - Single NFS Server with Block Volumes or Local NVMe SSDs
-
-![](./images/Single_NFS_Server_High_Level_Arch.png)
-
-### Bare metal Nodes - Single NFS Server with Block Volumes or Local NVMe SSDs
-Bare metal nodes comes with 2 physical NICs (2x25Gbps). To get best performance,  network bandwidth of both NICs can be used by creating 2 private subnets.  One subnet (private-storage) is used for data transfer between NFS server and OCI Block Volumes (disks) and second subnet (private-fs) is used for data transfer between NFS clients and NFS server.   
-
-![](./images/BM_Single_NFS_Server_High_Level_Arch.png)
 
 
 ## Prerequisites
@@ -105,29 +97,28 @@ Create a terraform.tfvars file and set values as per your needs.  We recommend t
 
 ```
 cat terraform.tfvars
-# Valid values for Availability Domain: 0,1,2, if the region has 3 ADs, else only 0.
-ad_number=0
-# Scratch or Persistent.  Persistent fs_type will use network attached Block volumes (redundant/more durable). Scratch fs_type will use local NVMe SSDs attached to the VM/BM DenseIO node.
-fs_type="Persistent"
-# Set to true to create 2 node NFS server with active/passive high availability cluster.  Can only be used with fs_type="Persistent".  If set to false, a single node NFS server will be deployed.
-fs_ha="true"
-# set, when fs_type="Persistent", otherwise, its value is ignored.
-persistent_storage_server_shape="BM.Standard2.52"
-# set/uncomment, when fs_type="Scratch", otherwise, its value is ignored.
-# scratch_storage_server_shape="VM.DenseIO2.16"
-# Storage disk (OCI Block Volumes) to attach for Persistent NFS filesystem.  Not applicable for "Scratch" filesystem, since it will use local NVMe SSDs attached to the VM/BM DenseIO node.
-fs1_disk_count="8"
-# Disk capacity in GB per disk
-fs1_disk_size="800"
-# Disk performance tiers - "Higher Performance",  "Balanced" & "Lower Cost"
-fs1_disk_perf_tier="Higher Performance"
-create_compute_nodes=true
-client_node_shape="VM.Standard.E2.2"
-client_node_count=1
-mount_point="/mnt/nfs"
+# NFS topology. Creates a two-node active/passive HA NFS cluster, a quorum
+# node, a bastion, and three 500-GB high-performance filesystem volumes.
+use_custom_name  = false
+ad_number        = 0
+linux_os_version = "8.10"
+cluster_name     = "localtestingnfs"
 
-create_monitoring_server=false
-monitoring_server_shape="VM.Standard2.1"
+persistent_storage_server_shape = "VM.Standard2.2"
+storage_server_ocpus            = 2
+storage_server_memory           = 16
+
+# Three shared data volumes provide 1.5 TB raw filesystem capacity. HA also
+# creates one separate small SBD fencing volume; it is not filesystem storage.
+fs1_disk_count = 3
+fs1_disk_size  = 500
+
+# Set client_node_count above zero to create test client instances.
+create_compute_nodes = true
+client_node_count    = 1
+client_node_shape    = "VM.Standard2.24"
+mount_point = "/mnt/nfs"
+create_monitoring_server = false
 
 
 ```
@@ -147,25 +138,16 @@ terraform apply
 ### Filesystem mounted on clients 
 ![](./images/oci-nfs-client-df-h.png)
 
+### How to mount NFS-HA filesystem on HPC compute nodes
+#### Edit the following variables in /etc/ansible/hosts
+	- add_nfs=true
+	- nfs_target_path=/nfs/nfsha
+	- nfs_source_IP=172.x.x.x
+	- nfs_source_path=/mnt/nfsshare/exports
+	- nfs_options= "vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev"
 
-## Grafana Dashboard for HA Cluster Resources (Corosync/Pacemaker)
-Optionally, this template can deploy a Grafana monitoring server and metrics collectors on all NFS-HA nodes to monitor HA Cluster resources.  It uses a dashboard from ClusterLabs.org.  
 
-![](./images/NFS-HA-Grafana-Dashboard-for-HA-Pacemaker-Corosync-Monitoring.png)
 
-## Contributing
 
-*If your project has specific contribution requirements, update the CONTRIBUTING.md file to ensure those requirements are clearly explained*
 
-This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md)
 
-## Security
-
-Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process
-
-## License
-
-Copyright (c) 2022 Oracle and/or its affiliates.
-
-Released under the Universal Permissive License v1.0 as shown at
-<https://oss.oracle.com/licenses/upl/>.

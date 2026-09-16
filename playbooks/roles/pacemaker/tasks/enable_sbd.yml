@@ -1,0 +1,43 @@
+---
+# SBD has RefuseManualStart=yes by design.  Enabling it makes systemd start it
+# as a dependency on the next controlled Corosync/Pacemaker start; do not use
+# systemctl start sbd here.
+- name: Enable SBD after fencing configuration is complete
+  ansible.builtin.systemd:
+    name: sbd
+    enabled: true
+
+- name: Verify SBD is enabled as a cluster dependency
+  ansible.builtin.command: systemctl is-enabled sbd
+  register: sbd_enablement
+  changed_when: false
+  failed_when: sbd_enablement.stdout != 'enabled'
+
+- name: Stop cluster services before activating the SBD dependency
+  ansible.builtin.command: pcs cluster stop --all --request-timeout=180
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+  when: sbd_restart_after_enable | bool
+
+- name: Start cluster services with the SBD dependency enabled
+  ansible.builtin.command: >-
+    pcs cluster start --all --wait=180 --request-timeout=180
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+  when: sbd_restart_after_enable | bool
+
+- name: Wait for storage nodes after optional SBD activation restart
+  cluster_info:
+  register: sbd_restart_cluster_info
+  changed_when: false
+  retries: 18
+  delay: 5
+  until:
+    - sbd_restart_cluster_info.connected | bool
+    - is_each_node_configured | bool
+    - is_each_node_online | bool
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+  when: sbd_restart_after_enable | bool

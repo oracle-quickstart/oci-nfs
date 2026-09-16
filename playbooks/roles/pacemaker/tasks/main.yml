@@ -1,0 +1,55 @@
+---
+- name: Enable Oracle EPEL repository for Pacemaker Python dependencies
+  ansible.builtin.dnf:
+    name: oracle-epel-release-el8
+    state: present
+  when:
+    - ansible_facts.distribution == 'OracleLinux'
+    - ansible_facts.distribution_major_version == '8'
+
+- name: Install Pacemaker Python dependencies
+  ansible.builtin.dnf:
+    name:
+      - python3
+      - python3-xmltodict
+    state: present
+    enablerepo: ol8_developer_EPEL
+    update_cache: true
+
+- name: Verify Pacemaker Python dependencies
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_facts.python.executable | default('/usr/bin/python3') }}"
+      - -c
+      - import xmltodict
+  changed_when: false
+
+# Install and validate the agent on every storage node before any cluster-wide
+# operation. A later failure on one node must never leave the node that PCS
+# uses for resource creation without the resource agent.
+- name: Preflight OCI-VIP resource agent on all storage nodes
+  ansible.builtin.include_tasks: resources_vip.yml
+  vars:
+    ocivip_agent_preflight_only: true
+
+- include_tasks: prepare_pcs.yml
+- include_tasks: persistent_journal.yml
+- include_tasks: prepare_sbd.yml
+- include_tasks: create_cluster.yml
+- include_tasks: config_quorum.yml
+- include_tasks: resource_defaults.yml
+
+- name: Pause resource management while resources are assembled
+  ansible.builtin.command: pcs property set maintenance-mode=true
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- include_tasks: config_fencing.yml
+- include_tasks: enable_sbd.yml
+- include_tasks: add_lvm_activate_resources.yml
+- include_tasks: add_filesystem_resources.yml
+- include_tasks: add_nfs_server_resource.yml
+- include_tasks: resources_vip.yml
+- include_tasks: ensure_nfs_resource_group.yml
+# include task to stop and start pcs cluster

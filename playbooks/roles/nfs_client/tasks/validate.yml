@@ -1,0 +1,27 @@
+---
+- name: Ensure NFS client runs on a compute node
+  ansible.builtin.assert:
+    that:
+      - "'compute' in group_names"
+      - filesystems is defined
+      - nfs_server_ip is defined
+      - nfs_export_subdirectory is defined
+    fail_msg: >-
+      nfs_client requires a compute host, filesystem definitions, the NFS VIP,
+      and the NFS export subdirectory.
+
+- name: Build enabled NFS filesystem list
+  ansible.builtin.set_fact:
+    nfs_client_enabled_filesystems: []
+
+- name: Add enabled filesystems to the NFS client mount list
+  ansible.builtin.set_fact:
+    nfs_client_enabled_filesystems: "{{ nfs_client_enabled_filesystems + [item] }}"
+  loop: "{{ filesystems }}"
+  when: item.enabled | bool
+
+- name: Ensure at least one filesystem is mounted
+  ansible.builtin.assert:
+    that:
+      - nfs_client_enabled_filesystems | length > 0
+    fail_msg: At least one filesystem must be enabled before NFS can be mounted.

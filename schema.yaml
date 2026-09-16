@@ -14,21 +14,23 @@ groupings:
     - volume_attach_device_mapping
     - volume_type_vpus_per_gb_mapping
     - ad_number
-    - images
     - mp_listing_id
     - mp_listing_resource_id
     - mp_listing_resource_version
     - use_marketplace_image
     - block_size
     - fs_name
+    - fs_type
+    - fs_ha
     - instance_os
     - linux_os_version
     - marketplace_source_images
-  - title: "NFS Filesystem Configuration"
-    visible: true
-    variables:
-    - fs_type
-    - fs_ha
+    - scratch_storage_server_shape
+    - use_non_uhp_fs1
+    - create_monitoring_server
+    - monitoring_server_hostname
+    - monitoring_server_ocpus
+    - monitoring_server_shape
   - title: "General Deployment Configuration"
     visible: true
     variables:
@@ -40,6 +42,7 @@ groupings:
     visible: true
     variables:
     - use_existing_vcn
+    - vcn_compartment
     - vcn_cidr
     - vcn_id
     - bastion_subnet_id
@@ -61,49 +64,25 @@ groupings:
   - title: "NFS Server Instance Configuration"
     visible: true
     variables:
-    - scratch_storage_server_shape
     - persistent_storage_server_shape
     - storage_server_ocpus
     - storage_server_custom_memory
     - storage_server_memory
-    - storage_server_node_count
     - storage_server_hostname_prefix
     - storage_server_boot_volume_size
-  - title: "NFS Storage Configuration"
+  - title: "NFS Shared Block Storage"
+    visible: true
     variables:
-    - use_uhp
-    - uhp_fs0_disk_perf_tier
-    - uhp_fs0_disk_count
-    - uhp_fs0_disk_size
-    - use_non_uhp_fs1
     - fs1_disk_perf_tier
     - fs1_disk_count
     - fs1_disk_size
-    - use_non_uhp_fs2
-    - fs2_disk_perf_tier
-    - fs2_disk_count
-    - fs2_disk_size
-    - use_non_uhp_fs3
-    - fs3_disk_perf_tier
-    - fs3_disk_count
-    - fs3_disk_size
-    visible:
-      not:
-        - eq:
-          - ${fs_type}
-          - "Scratch"
   - title: "Quorum Server Instance Configuration"
+    visible: true
     variables:
     - quorum_server_shape
     - quorum_server_ocpus
     - quorum_server_hostname
-    visible:
-      and:
-        - ${fs_ha}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-  - title: "NFS Client Instance Configuration - Optional"
+  - title: "NFSv4 Client Instance Configuration - Optional"
     visible: true
     variables:
     - create_compute_nodes
@@ -112,27 +91,31 @@ groupings:
     - client_node_count
     - client_node_hostname_prefix
     - mount_point
-
-  - title: "Grafana Monitoring Server - Optional"
-    visible:
-      and:
-        - ${fs_ha}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-    variables:
-    - create_monitoring_server
-    - monitoring_server_shape
-    - monitoring_server_ocpus
-    - monitoring_server_hostname
-
-
+  
 # Add variable here ,  if you want to do input validation or else it does not need to be included here.
 variables:
-  ssh_public_key:
-    title: "SSH Public Key"
-    description: "Public key to ssh into all provisioned compute instances."
+  tenancy_ocid:
     type: string
+    title: "Tenancy OCID"
+    description: "The tenancy where the stack is deployed. Automatically assigned by Marketplace/Resource Manager."
+    required: true
+
+  region:
+    type: oci:identity:region:name
+    title: "Region"
+    description: "The deployment region. Automatically assigned by Marketplace/Resource Manager."
+    required: true
+
+  compartment_ocid:
+    type: oci:identity:compartment:id
+    title: "Deployment Compartment"
+    description: "The compartment where resources are deployed. Automatically assigned by Marketplace/Resource Manager."
+    required: true
+
+  ssh_public_key:
+    type: oci:core:ssh:publickey
+    title: "Public SSH key"
+    description: "Public SSH key"
     required: true
 
   ad_name:
@@ -162,34 +145,20 @@ variables:
   bastion_shape:
     title: "Bastion Compute Shape"
     description: "Shape for bastion instances."
-    default: "VM.Standard2.2"
+    default: "VM.Standard.E5.Flex"
     required: true
     type: enum
     enum:
     - "VM.DenseIO2.8"
     - "VM.DenseIO2.16"
     - "VM.DenseIO2.24"
-    - "VM.Standard2.1"
-    - "VM.Standard2.2"
-    - "VM.Standard2.4"
-    - "VM.Standard2.8"
-    - "VM.Standard2.16"
-    - "VM.Standard2.24"
-    - "VM.Standard.E2.1"
-    - "VM.Standard.E2.2"
-    - "VM.Standard.E2.4"
-    - "VM.Standard.E2.8"
     - "VM.Standard.E3.Flex"
     - "VM.Standard.E4.Flex"
-    - "VM.GPU3.1"
-    - "VM.GPU3.2"
-    - "VM.GPU3.4"
-    - "BM.Standard2.52"
-    - "BM.Standard.E2.64"
+    - "VM.Standard.E5.Flex"
     - "BM.Standard.E3.128"
     - "BM.Standard.E4.128"
+    - "BM.Standard.E5.128"
     - "BM.DenseIO2.52"
-    - "BM.HPC2.36"
     - "BM.GPU3.8"
     - "BM.GPU4.8"
     - "VM.Optimized3.Flex"
@@ -212,6 +181,9 @@ variables:
           - eq:
             - ${bastion_shape}
             - "VM.Standard.E4.Flex"
+          - eq:
+            - ${bastion_shape}
+            - "VM.Standard.E5.Flex"
     required: true
 
   bastion_node_count:
@@ -250,11 +222,7 @@ variables:
     - "BM.DenseIO2.52"
     - "BM.HPC2.36"
     - "BM.Optimized3.36"
-    visible:
-      and:
-        - eq:
-          - ${fs_type}
-          - "Scratch"
+    visible: false
 
   persistent_storage_server_shape:
     title: "NFS Storage Server Compute Shape"
@@ -263,30 +231,25 @@ variables:
     required: true
     type: enum
     enum:
-    - "VM.Standard2.1"
-    - "VM.Standard2.2"
-    - "VM.Standard2.4"
-    - "VM.Standard2.8"
-    - "VM.Standard2.16"
-    - "VM.Standard2.24"
-    - "BM.Standard2.52"
-    - "VM.Standard.E2.1"
-    - "VM.Standard.E2.2"
-    - "VM.Standard.E2.4"
-    - "VM.Standard.E2.8"
-    - "BM.Standard.E2.64"
+    - "VM.Standard3.Flex"
+    - "VM.Standard4.Flex"
+    - "VM.Standard4.Ax.Flex"
     - "VM.Standard.E3.Flex"
     - "BM.Standard.E3.128"
+    - "BM.Standard3.64"
+    - "BM.Standard4.Ax.120"
     - "VM.Standard.E4.Flex"
     - "BM.Standard.E4.128"
+    - "VM.Standard.E5.Flex"
+    - "BM.Standard.E5.192"
+    - "VM.Standard.E6.Flex"
+    - "VM.Standard.E6.Ax.Flex"
+    - "BM.Standard.E6.256"
+    - "BM.Standard.E6.Ax.192"
     - "VM.Optimized3.Flex"
     - "BM.Optimized3.36"
     - "BM.HPC2.36"
-    visible:
-      and:
-        - eq:
-          - ${fs_type}
-          - "Persistent"
+    visible: true
 
   storage_server_ocpus:
     title: Cores
@@ -304,6 +267,24 @@ variables:
           - eq:
             - ${persistent_storage_server_shape}
             - "VM.Standard.E4.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E5.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E6.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E6.Ax.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard3.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard4.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard4.Ax.Flex"
     required: true
 
 
@@ -320,7 +301,26 @@ variables:
           - eq:
             - ${persistent_storage_server_shape}
             - "VM.Standard.E4.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E5.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E6.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E6.Ax.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard3.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard4.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard4.Ax.Flex"
     
+
   storage_server_memory:
     title: Memory in GBS
     type: integer
@@ -337,20 +337,27 @@ variables:
           - eq:
             - ${persistent_storage_server_shape}
             - "VM.Standard.E4.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E5.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E6.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard.E6.Ax.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard3.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard4.Flex"
+          - eq:
+            - ${persistent_storage_server_shape}
+            - "VM.Standard4.Ax.Flex"
         - and:
             - ${storage_server_custom_memory}
     required: true
-
-
-  storage_server_node_count:
-    title: "Number of storage servers"
-    description: "Number of storage server instances."
-    type: integer
-    default: 2
-    minimum: 1
-    required: true
-    visible: false
-
   storage_server_hostname_prefix:
     type: string
     required: true
@@ -367,84 +374,13 @@ variables:
 
 
 
-  use_uhp:
-    type: boolean
-    title: "XFS-0 : Build file system using Ultra High Performance Block Volume. (Only supported on Storage Servers with minimum 16 cores/OCPU)."
-    description: "Select the checkbox, if you want to use Ultra High Performance Block Volume for one of your XFS file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
-    required: false
-    default: false
-
   use_non_uhp_fs1:
     type: boolean
     title: "XFS-1 : Build file system using either Higher/Balanced/Lower Cost Performance Block Volumes"
     description: "Create XFS-1 file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
     required: false
-    default: false
-
-  use_non_uhp_fs2:
-    type: boolean
-    title: "XFS-2 : Build file system using either Higher/Balanced/Lower Cost Performance Block Volumes"
-    description: "Create XFS-2 file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
-    required: false
-    default: false
-
-  use_non_uhp_fs3:
-    type: boolean
-    title: "XFS-3 : Build file system using either Higher/Balanced/Lower Cost Performance Block Volumes"
-    description: "Create XFS-3 file system. Multiple XFS filesystems are supported.  All XFS will be exported over NFS"
-    required: false
-    default: false
-
-
-  uhp_fs0_disk_perf_tier:
-    title: "Block Volume Storage Performance tier"
-    description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
-    type: enum
-    enum:
-    - "Ultra High Performance - 120VPUs"
-    - "Ultra High Performance - 110VPUs"
-    - "Ultra High Performance - 100VPUs"
-    - "Ultra High Performance - 90VPUs"
-    - "Ultra High Performance - 80VPUs"
-    - "Ultra High Performance - 70VPUs"
-    - "Ultra High Performance - 60VPUs"
-    - "Ultra High Performance - 50VPUs"
-    - "Ultra High Performance - 40VPUs"
-    - "Ultra High Performance - 30VPUs"
-    required: true
-    default: "Ultra High Performance - 30VPUs"
-    visible:
-      and:
-        - ${use_uhp}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-
-  uhp_fs0_disk_count:
-    title: "Number of block volumes"
-    description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
-    type: integer
-    default: 1
-    minimum: 1
-    maximum: 1
-    required: true
+    default: true
     visible: false
-
-
-  uhp_fs0_disk_size:
-    title: "Block volume size"
-    description: "Select size in GB for each block volume/disk, min 50."
-    type: integer
-    default: 1000
-    minimum: 50
-    maximum: 32768
-    required: true
-    visible:
-      and:
-        - ${use_uhp}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
 
 
 
@@ -458,12 +394,7 @@ variables:
     - "Lower Cost"
     required: true
     default: "Higher Performance"
-    visible:
-      and:
-        - ${use_non_uhp_fs1}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
+    visible: true
 
   fs1_disk_count:
     title: "Number of block volumes"
@@ -473,23 +404,7 @@ variables:
     minimum: 1
     maximum: 32
     required: true
-    visible:
-      and:
-        - or:
-          - eq:
-            - ${fs1_disk_perf_tier}
-            - "Higher Performance"
-          - eq:
-            - ${fs1_disk_perf_tier}
-            - "Balanced"
-          - eq:
-            - ${fs1_disk_perf_tier}
-            - "Lower Cost"
-        - and:
-          - ${use_non_uhp_fs1}
-          - eq:
-            - ${fs_type}
-            - "Persistent"
+    visible: true
 
 
 
@@ -501,132 +416,7 @@ variables:
     minimum: 50
     maximum: 32768
     required: true
-    visible:
-      and:
-        - ${use_non_uhp_fs1}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-
-  fs2_disk_perf_tier:
-    title: "Block Volume Storage Performance tier"
-    description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
-    type: enum
-    enum:
-    - "Higher Performance"
-    - "Balanced"
-    - "Lower Cost"
-    required: true
-    default: "Higher Performance"
-    visible:
-      and:
-        - ${use_non_uhp_fs2}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-
-  fs2_disk_count:
-    title: "Number of block volumes"
-    description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
-    type: integer
-    default: 4
-    minimum: 1
-    maximum: 32
-    required: true
-    visible:
-      and:
-        - or:
-          - eq:
-            - ${fs2_disk_perf_tier}
-            - "Higher Performance"
-          - eq:
-            - ${fs2_disk_perf_tier}
-            - "Balanced"
-          - eq:
-            - ${fs2_disk_perf_tier}
-            - "Lower Cost"
-        - and:
-          - ${use_non_uhp_fs2}
-          - eq:
-            - ${fs_type}
-            - "Persistent"
-
-
-  fs2_disk_size:
-    title: "Block volume size"
-    description: "Select size in GB for each block volume/disk, min 50."
-    type: integer
-    default: 1000
-    minimum: 50
-    maximum: 32768
-    required: true
-    visible:
-      and:
-        - ${use_non_uhp_fs2}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-
-
-  fs3_disk_perf_tier:
-    title: "Block Volume Storage Performance tier"
-    description: "Select block volume storage performance tier based on your performance needs. See https://docs.cloud.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeelasticperformance.htm for more information."
-    type: enum
-    enum:
-    - "Higher Performance"
-    - "Balanced"
-    - "Lower Cost"
-    required: true
-    default: "Higher Performance"
-    visible:
-      and:
-        - ${use_non_uhp_fs3}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-
-  fs3_disk_count:
-    title: "Number of block volumes"
-    description: "Number of block volume disk per file server. Each attached as JBOD (no RAID). Block Volumes are durable and highly available(HA)."
-    type: integer
-    default: 2
-    minimum: 1
-    maximum: 32
-    required: true
-    visible:
-      and:
-        - or:
-          - eq:
-            - ${fs3_disk_perf_tier}
-            - "Higher Performance"
-          - eq:
-            - ${fs3_disk_perf_tier}
-            - "Balanced"
-          - eq:
-            - ${fs3_disk_perf_tier}
-            - "Lower Cost"
-        - and:
-          - ${use_non_uhp_fs3}
-          - eq:
-            - ${fs_type}
-            - "Persistent"
-
-
-  fs3_disk_size:
-    title: "Block volume size"
-    description: "Select size in GB for each block volume/disk, min 50."
-    type: integer
-    default: 1000
-    minimum: 50
-    maximum: 32768
-    required: true
-    visible:
-      and:
-        - ${use_non_uhp_fs3}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
-
+    visible: true
 
   create_compute_nodes:
     type: boolean
@@ -638,31 +428,14 @@ variables:
   client_node_shape:
     title: "Client Compute Shape"
     description: "Shape for client instances."
-    default: "VM.Standard2.24"
+    default: "VM.Standard.E5.Flex"
     required: true
     visible: ${create_compute_nodes}
     type: enum
     enum:
-    - "VM.DenseIO2.8"
-    - "VM.DenseIO2.16"
-    - "VM.DenseIO2.24"
-    - "VM.Standard2.1"
-    - "VM.Standard2.2"
-    - "VM.Standard2.4"
-    - "VM.Standard2.8"
-    - "VM.Standard2.16"
-    - "VM.Standard2.24"
-    - "VM.Standard.E2.1"
-    - "VM.Standard.E2.2"
-    - "VM.Standard.E2.4"
-    - "VM.Standard.E2.8"
     - "VM.Standard.E3.Flex"
     - "VM.Standard.E4.Flex"
-    - "VM.GPU3.1"
-    - "VM.GPU3.2"
-    - "VM.GPU3.4"
-    - "BM.Standard2.52"
-    - "BM.Standard.E2.64"
+    - "VM.Standard.E5.Flex"
     - "BM.Standard.E3.128"
     - "BM.Standard.E4.128"
     - "BM.DenseIO2.52"
@@ -688,6 +461,9 @@ variables:
           - eq:
             - ${client_node_shape}
             - "VM.Standard.E4.Flex"
+          - eq:
+            - ${client_node_shape}
+            - "VM.Standard.E5.Flex"
     required: true
 
   client_node_count:
@@ -710,9 +486,6 @@ variables:
     title: "Filesystem Name"
     type: enum
     enum:
-    - "BeeGFS"
-    - "Lustre"
-    - "GlusterFS"
     - "NFS"
     required: true
     default: "NFS"
@@ -727,26 +500,23 @@ variables:
     - "Persistent"
     required: true
     default: "Persistent"
-    description: "Select filesystem type to deploy. Scratch filesystem will use compute shapes (VM/BM.DenseIO/BM.HPC2.36) and their local NVMe SSD disks for NFS server. Persistent filesystem will use Standard (VM/BM.Standard*) compute shapes(no local NVMe) and network attached Block Volume Storage which are more durable and highly available."
+    description: "Persistent shared block-volume storage used by the active/passive HA NFS cluster."
+    visible: false
 
   fs_ha:
     type: boolean
     title: "Active/Passive Highly Available"
-    description: "Select checkbox, to create an Active/Passive Highly Available NFS file server (Two nodes)"
+    description: "Deploy a two-node active/passive highly available NFS cluster."
     required: true
-    default: false
-    visible:
-      and:
-        - eq:
-          - ${fs_type}
-          - "Persistent"
+    default: true
+    visible: false
 
   mount_point:
     title: "Filesystem Mount Point"
     type: string
     required: true
     default: "/mnt/nfs"
-    description: "Mount point on client instances for selected filesystem. "
+    description: "Root directory where enabled NFSv4 exports are mounted on client instances."
     visible: ${create_compute_nodes}
 
   ad_number:
@@ -795,46 +565,63 @@ variables:
       not:
         - ${use_existing_vcn}
 
-  vcn_id:
-    type: string
-    title: "Existing VCN OCID"
-    description: "Existing VCN OCID"
+  vcn_compartment:
+    title: "VCN compartment"
+    type: oci:identity:compartment:id
     visible: ${use_existing_vcn}
+    default: ${targetCompartment}
     required: true
 
+  vcn_id:
+    type: oci:core:vcn:id
+    visible:
+      and:
+        - ${use_existing_vcn}
+    title: "Existing network"
+    default: ''
+    required: true
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+
   bastion_subnet_id:
-    type: string
+    type: oci:core:subnet:id
     title: "Bastion Subnet OCID"
     description: "Bastion Subnet - Ensure the Subnet is in the same availability domain selected above or use regional subnet"
-    visible: ${use_existing_vcn}
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+      vcnId: ${vcn_id}
+      hidePrivateSubnet: false
+    visible: ${use_existing_vcn}  
     required: true
 
   storage_subnet_id:
-    type: string
+    type: oci:core:subnet:id
     title: "NFS Server Primary Subnet OCID"
     description: "Enter private subnet OCID to be used to deploy NFS servers. This will be the primary subnet used by the server to access boot/OS disk and network attached data Block Volumes. Ensure the Subnet is in the same availability domain selected above or use regional subnet.  Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+      vcnId: ${vcn_id}
+      hidePublicSubnet: true
     visible: ${use_existing_vcn}
     required: true
 
   fs_subnet_id:
-    type: string
+    type: oci:core:subnet:id
     title: "NFS Server Secondary Subnet OCID"
     description: "Only set this value, if you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers. Otherwise leave it blank. This 2nd private subnet OCID will be used to create a secondary VNIC using 2nd physical NIC.  For Baremetal nodes(except BM.HPC2.36), we need two subnets to use both physical NICs of the node for highest performance. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
+    dependsOn:
+      compartmentId: ${vcn_compartment}
+      vcnId: ${vcn_id}
+      hidePublicSubnet: true
     visible: ${use_existing_vcn}
-    required: false
+    required: true
 
   ha_vip_private_ip:
     type: string
     title: "Private Virtual IP for HA (Highly Availability)"
-    description: "Floating Virtual IP which gets assigned to an active node in an active/passive HA cluster. NFS clients will use this IP to connect to NFS cluster. If you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers, then provide an unused private IP from the 'secondary subnet'.  For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance.   If you plan to use VM .x or BM.HPC2.36 compute shapes for NFS file servers, then provide an unused private IP from 'primary subnet' to be used to install NFS servers. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs."
-    required: true
-    default: "10.0.3.200"
-    visible:
-      and:
-        - ${fs_ha}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
+    description: "Optional fixed address for the floating HA VIP. Leave blank to let OCI allocate a valid address in the selected VIP subnet."
+    required: false
+    visible: ${fs_ha}
 
   ha_vip_hostname:
     type: string
@@ -842,41 +629,22 @@ variables:
     description: "Must be unique within the subnet it belongs to. Example: nfs-vip-123."
     required: optional
     default: "nfs-vip-1"
-    visible:
-      and:
-        - ${fs_ha}
-        - eq:
-          - ${fs_type}
-          - "Persistent"
+    visible: true
 
 
   quorum_server_shape:
     title: "Quorum Server Compute Shape"
     description: "Shape for Quorum node. A minimum of 3 nodes (2 NFS Server node + 1 Quorum node) are required to ensure that a cluster always has a quorum of nodes to maintain a healthy active cluster."
-    default: "VM.Standard2.1"
+    default: "VM.Standard.E5.Flex"
     required: true
     type: enum
     enum:
-    - "VM.DenseIO2.8"
-    - "VM.DenseIO2.16"
-    - "VM.DenseIO2.24"
-    - "VM.Standard2.1"
-    - "VM.Standard2.2"
-    - "VM.Standard2.4"
-    - "VM.Standard2.8"
-    - "VM.Standard2.16"
-    - "VM.Standard2.24"
-    - "VM.Standard.E2.1"
-    - "VM.Standard.E2.2"
-    - "VM.Standard.E2.4"
-    - "VM.Standard.E2.8"
     - "VM.Standard.E3.Flex"
     - "VM.Standard.E4.Flex"
+    - "VM.Standard.E5.Flex"
     - "VM.GPU3.1"
     - "VM.GPU3.2"
     - "VM.GPU3.4"
-    - "BM.Standard2.52"
-    - "BM.Standard.E2.64"
     - "BM.Standard.E3.128"
     - "BM.Standard.E4.128"
     - "BM.DenseIO2.52"
@@ -902,6 +670,9 @@ variables:
           - eq:
             - ${quorum_server_shape}
             - "VM.Standard.E4.Flex"
+          - eq:
+            - ${quorum_server_shape}
+            - "VM.Standard.E5.Flex"
     required: true
 
   quorum_server_hostname:
@@ -915,10 +686,14 @@ variables:
   instance_os:
     title: "Operating system for compute instances"
     type: string
+    default: "Oracle Linux"
+    visible: false
 
   linux_os_version:
     title: "Operating system version for compute instances"
     type: string
+    default: "8.10"
+    visible: false
 
 
   bastion_subnet_cidr:
@@ -950,74 +725,3 @@ variables:
       not:
         - ${use_existing_vcn}
     required: false
-
-  create_monitoring_server:
-    type: boolean
-    title: "Create Grafana Monitoring Server"
-    description: "Select checkbox, if you want to create Grafana monitoring node to view Pacemaker/Corosync and IaaS metrics"
-    required: false
-    default: false
-
-  monitoring_server_shape:
-    title: "Grafana Monitoring Server Shape"
-    description: "Shape for monitoring instance. Node will be created in NFS server primary private subnet."
-    default: "VM.Standard2.2"
-    required: true
-    visible: ${create_monitoring_server}
-    type: enum
-    enum:
-    - "VM.DenseIO2.8"
-    - "VM.DenseIO2.16"
-    - "VM.DenseIO2.24"
-    - "VM.Standard2.1"
-    - "VM.Standard2.2"
-    - "VM.Standard2.4"
-    - "VM.Standard2.8"
-    - "VM.Standard2.16"
-    - "VM.Standard2.24"
-    - "VM.Standard.E2.1"
-    - "VM.Standard.E2.2"
-    - "VM.Standard.E2.4"
-    - "VM.Standard.E2.8"
-    - "VM.Standard.E3.Flex"
-    - "VM.Standard.E4.Flex"
-    - "VM.GPU3.1"
-    - "VM.GPU3.2"
-    - "VM.GPU3.4"
-    - "BM.Standard2.52"
-    - "BM.Standard.E2.64"
-    - "BM.Standard.E3.128"
-    - "BM.Standard.E4.128"
-    - "BM.DenseIO2.52"
-    - "BM.HPC2.36"
-    - "BM.GPU3.8"
-    - "BM.GPU4.8"
-    - "VM.Optimized3.Flex"
-    - "BM.Optimized3.36"
-
-  monitoring_server_ocpus:
-    title: Cores
-    type: integer
-    description: Number of OCPU's for flex shape
-    minimum: 1
-    maximum: 64
-    default: 2
-    visible:
-      and:
-        - or:
-          - eq:
-            - ${monitoring_server_shape}
-            - "VM.Standard.E3.Flex"
-          - eq:
-            - ${monitoring_server_shape}
-            - "VM.Standard.E4.Flex"
-    required: true
-
-  monitoring_server_hostname:
-    title: "Grafana Monitoring Server Hostname"
-    type: string
-    required: true
-    default: "nfs-grafana"
-    description: "Grafana Monitoring Server Hostname "
-    visible: ${create_monitoring_server}
-

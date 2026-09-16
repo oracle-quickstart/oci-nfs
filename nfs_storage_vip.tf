@@ -1,25 +1,25 @@
 
 
 data "oci_core_vnic_attachments" "storage_server_vnic_attachments" {
-    #Required
-    compartment_id = var.compartment_ocid
+  #Required
+  compartment_id = var.compartment_ocid
 
-    #Optional
-    instance_id = element(concat(oci_core_instance.storage_server.*.id, [""]), 0)
+  #Optional
+  instance_id = element(concat(oci_core_instance.storage_server.*.id, [""]), 0)
 }
 
 
 # For NFS HA - VIP
 resource "oci_core_private_ip" "storage_vip_private_ip" {
-    count = var.fs_ha ? 1 : 0
+  count = var.fs_ha ? 1 : 0
 
-    #Required
-    vnic_id = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0) : element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)) : element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id,  [""]), 0))
+  #Required
+  vnic_id = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id, [""]), 0) : element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id, [""]), 0)) : element(concat(data.oci_core_vnic_attachments.storage_server_vnic_attachments.vnic_attachments.*.vnic_id, [""]), 0))
 
-    display_name = "nfs-vip"
-    # If user doesn't provide a hostname, use random xxx-xxx string for uniqueness.
-    hostname_label = length(var.ha_vip_hostname) > 0 ? var.ha_vip_hostname : random_pet.name.id
-    ip_address = local.nfs_server_ip
+  display_name = "nfs-vip"
+  # If user doesn't provide a hostname, use random xxx-xxx string for uniqueness.
+  hostname_label = length(var.ha_vip_hostname) > 0 ? var.ha_vip_hostname : random_pet.name.id
+  ip_address     = local.requested_ha_vip_private_ip == "" ? null : local.requested_ha_vip_private_ip
 }
 
 
@@ -45,5 +45,4 @@ resource "oci_core_vnic_attachment" "storage_server_secondary_vnic_attachment" {
   # set to 1, if you want to use 2nd physical NIC for this VNIC
   nic_index = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? "0" : "1") : "0")
 }
-
 

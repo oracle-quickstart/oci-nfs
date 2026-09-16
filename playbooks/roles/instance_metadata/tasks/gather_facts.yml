@@ -1,0 +1,39 @@
+---
+- name: Get OCI Metadata 
+  ansible.builtin.uri: 
+    url: "http://169.254.169.254/opc/v2/{{ item }}/"
+    return_content: true
+    headers: 
+      Authorization: Bearer Oracle
+  register: oci_metadata_raw
+  loop: 
+    - instance
+    - instance/shapeConfig
+    - vnics
+   
+  retries: 3 
+  # TODO add api delay variable 
+  delay: 1 
+  until: "oci_metadata_raw.status == 200"
+
+# TODO vol attachents for multipatch, return 404 if not used
+# when using multi attah  volumeAttachments
+
+- name: Convert results to facts
+  ansible.builtin.set_fact:
+    oci_metadata: "{{ oci_metadata | default({}) | combine({item.item: item.content}) }}"  
+    cacheable: yes
+  loop: "{{ oci_metadata_raw.results }}"
+
+- debug: 
+    msg: "{{ hostvars[inventory_hostname]['oci_metadata'].vnics }}" 
+
+
+
+# node 
+#  - id 
+#  - display_name 
+#  - fqdn 
+#  - private_ip 
+#  - secondary_private_ips
+#  - 

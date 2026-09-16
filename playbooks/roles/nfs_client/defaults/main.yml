@@ -1,0 +1,12 @@
+---
+nfs_client_mount_root: /mnt/nfs
+# Keep the v4 mount directory unchanged for existing deployments.  NFSv3 uses
+# a distinct directory because a single mount point cannot host both versions.
+nfs_client_mount_versions:
+  - name: nfs3
+    mount_suffix: "-v3"
+    options: "rw,_netdev,vers=3,proto=tcp,nolock,local_lock=none"
+  - name: nfs4
+    mount_suffix: ""
+    options: "rw,_netdev,vers=4.1,proto=tcp"
+nfs_client_mount_retries: 6

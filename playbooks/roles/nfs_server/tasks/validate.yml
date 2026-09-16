@@ -1,0 +1,32 @@
+---
+- name: Ensure NFS server runs on a storage node
+  ansible.builtin.assert:
+    that:
+      - "'storage' in group_names"
+      - groups['storage'] | length > 0
+      - filesystems is defined
+      - nfs_export_client_cidrs | length > 0
+    fail_msg: >-
+      nfs_server requires a storage host, at least one storage group member,
+      filesystem definitions, and at least one export client CIDR.
+
+- name: Build enabled NFS filesystem list
+  ansible.builtin.set_fact:
+    nfs_enabled_filesystems: []
+
+- name: Add enabled filesystems to the NFS export list
+  ansible.builtin.set_fact:
+    nfs_enabled_filesystems: "{{ nfs_enabled_filesystems + [item] }}"
+  loop: "{{ filesystems }}"
+  when: item.enabled | bool
+
+- name: Ensure at least one filesystem is exported
+  ansible.builtin.assert:
+    that:
+      - nfs_enabled_filesystems | default([]) | length > 0
+    fail_msg: At least one filesystem must be enabled before NFS can be configured.
+
+- name: Set shared NFS information directory
+  ansible.builtin.set_fact:
+    nfs_shared_infodir: >-
+      {{ nfs_enabled_filesystems[0].path }}/{{ nfs_shared_infodir_name }}

@@ -1,0 +1,52 @@
+---
+- name: Gather cluster info before fencing resource configuration
+  cluster_info:
+  register: cluster_info
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Set SBD fencing timeout
+  ansible.builtin.command: pcs property set stonith-timeout=60s
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Create SBD fencing resource
+  ansible.builtin.command: >-
+    pcs stonith create sbd_fencing fence_sbd
+    devices={{ sbd_config.device }}
+    pcmk_host_check=static-list
+    pcmk_host_list={{ groups['storage'] | join(',') }}
+    pcmk_delay_base={{ groups['storage'][0] }}:{{ sbd_fencing_node1_delay }};{{ groups['storage'][1] }}:{{ sbd_fencing_node2_delay }}
+    pcmk_delay_max=0s
+    disable_timeout=false
+    power_timeout={{ sbd_fencing_power_timeout }}
+    op monitor interval={{ sbd_fencing_monitor_interval }} timeout={{ sbd_fencing_monitor_timeout }}
+  run_once: true
+  when: not is_stonith_configured | bool
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+# fence_sbd cannot discover OCI node names from the shared SBD device. Give
+# Pacemaker the cluster node names explicitly so it offers this resource for
+# fencing either storage node.  RHEL 8.6+ lets one resource have a deterministic
+# per-target delay, avoiding the two resource/location-constraint pattern used
+# by the older RHEL 7 implementation.
+- name: Configure SBD fencing targets and timeouts
+  ansible.builtin.command: >-
+    pcs stonith update sbd_fencing
+    pcmk_host_check=static-list
+    pcmk_host_list={{ groups['storage'] | join(',') }}
+    pcmk_delay_base={{ groups['storage'][0] }}:{{ sbd_fencing_node1_delay }};{{ groups['storage'][1] }}:{{ sbd_fencing_node2_delay }}
+    pcmk_delay_max=0s
+    disable_timeout=false
+    power_timeout={{ sbd_fencing_power_timeout }}
+    op monitor interval={{ sbd_fencing_monitor_interval }} timeout={{ sbd_fencing_monitor_timeout }}
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Verify SBD fencing resource configuration
+  ansible.builtin.command: pcs stonith config sbd_fencing
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

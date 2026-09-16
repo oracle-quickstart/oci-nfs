@@ -1,7 +1,7 @@
 
 
 output "Filesystem-Mount-Details" {
-value = <<END
+  value = <<END
 
         NFSv3 mount for root NFS shared folder (/mnt/nfsshare/exports): sudo mount -t nfs -o vers=3,defaults,noatime,bg,timeo=100,ac,actimeo=120,nocto,rsize=1048576,wsize=1048576,nolock,local_lock=none,proto=tcp,sec=sys,_netdev  ${local.nfs_server_ip}:/mnt/nfsshare/exports  /mnt/nfs
 
@@ -13,7 +13,7 @@ END
 
 
 output "SSH-login" {
-value = <<END
+  value = <<END
 
         Bastion: ssh -i CHANGEME ${var.ssh_user}@${element(concat(oci_core_instance.bastion.*.public_ip, [""]), 0)}
 
@@ -53,14 +53,18 @@ output "compute_private_ips" {
 # secondary_vnic: ${element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)    }
 
 output "NFS-Server-IP-to-Mount" {
-value = <<END
+  value = <<END
   ${local.nfs_server_ip} (IP for NFS clients to use to mount.)
 END
 }
 
-
-output "hacluster_user_password" {
-  value = [random_string.hacluster_user_password.result]
+output "ha_vip_private_ip" {
+  description = "Resolved HA VIP address. Null for non-HA deployments."
+  value       = var.fs_ha ? oci_core_private_ip.storage_vip_private_ip[0].ip_address : null
 }
 
 
+output "hacluster_user_password" {
+  value     = [random_string.hacluster_user_password.result]
+  sensitive = true
+}

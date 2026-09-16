@@ -1,0 +1,80 @@
+---
+#
+# Cluster vars
+#
+is_each_node_online: >-
+  {{ cluster_info.connected | default(false) | bool
+     and (cluster_info.status.nodes | default({}) | length == storage_server_node_count | int)
+     and (cluster_info.status.nodes | default({})
+     | dict2items
+     | map(attribute='value.online')
+     | list is all) }}
+
+is_each_node_configured: >-
+   {{ cluster_info.connected | default(false) | bool
+      and (cluster_info.status.summary.nodes_configured.number | default(0) | int
+      == storage_server_node_count | int) }}
+
+is_cluster_running: >-
+  {{ cluster_info.connected | default(false) | bool
+     and (cluster_info.status.summary.stack | default({})).get('pacemakerd-state', '') == 'running' }}
+
+
+#
+# Stonith vars
+#
+sbd_config:
+  device: "{{ sbd_device }}"
+  watchdog_device: /dev/watchdog
+  # OCI instances do not expose a hardware watchdog. softdog is the software
+  # watchdog used by the legacy deployment template.
+  watchdog_module: softdog
+  timeout_watchdog: 20
+  timeout_msgwait: 40
+  warn_threshold_watchdog_timeout: 17
+
+# fence_sbd timing.  These preserve the deterministic behavior used by the
+# RHEL 7.9 deployment while using one shared fence resource on RHEL 8.6+.
+# Keep power_timeout greater than SBD msgwait; it is intentionally derived
+# from msgwait rather than copied as a separate, potentially stale value.
+# fence_sbd parses this agent option as an integer number of seconds (for
+# example, 45), not a Pacemaker duration such as "45s".
+sbd_fencing_power_timeout: "{{ (sbd_config.timeout_msgwait | int) + 5 }}"
+sbd_fencing_monitor_interval: 60s
+sbd_fencing_monitor_timeout: 50s
+sbd_fencing_node1_delay: 0s
+sbd_fencing_node2_delay: 5s
+
+is_stonith_configured: >-
+  {{ 'stonith:fence_sbd' in (cluster_info.status.resources | default({})) }}
+
+#
+# OCIVIP vars
+#
+oci_cli_path: '/usr/bin/oci' 
+ocivip_heartbeat_url: 'https://raw.githubusercontent.com/ClusterLabs/resource-agents/refs/heads/main/heartbeat/ocivip'
+ocivip_dest_path: '/usr/lib/ocf/resource.d/heartbeat/ocivip' 
+# The VIP lives on the filesystem VNIC for dual-NIC servers. Derive its prefix
+# from the rendered inventory rather than assuming every filesystem subnet is
+# a /24.
+ocivip_cidr_netmask: >-
+  {{ (private_fs_subnet_cidr_block | default(private_storage_subnet_cidr_block)).split('/')[-1] }}
+ocivip_interface_alias: 0
+
+#
+# LVM resources vars 
+#
+
+pacemaker_primary_node: "{{ groups['storage'][0] }}"
+pacemaker_qdevice_node: "{{ groups['quorum'][0] }}"
+pacemaker_nfs_resource_group: nfsgroup
+pacemaker_nfs_resource_name: nfs-daemon
+pacemaker_vip_resource_name: OCIVIP
+# A fresh two-node cluster can perform an SBD fence and reboot while its first
+# resource group is being started. Allow enough time for the fence, node boot,
+# and group convergence instead of failing the Terraform provisioner at 180s.
+pacemaker_resource_enable_timeout: 600
+pacemaker_filesystem_type: xfs
+pacemaker_filesystem_mount_options: 'noatime,inode64,uquota,prjquota'
+pacemaker_nfs_shared_infodir: >-
+  {{ hostvars[pacemaker_primary_node].nfs_shared_infodir | default('/var/lib/nfs') }}

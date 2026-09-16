@@ -1,0 +1,227 @@
+---
+- name: Download OCI-VIP resource agent
+  ansible.builtin.uri:
+    url: "{{ ocivip_heartbeat_url }}"
+    dest: "{{ ocivip_dest_path }}"
+    creates: "{{ ocivip_dest_path }}"
+    mode: '0755'
+    owner: root
+    status_code: 200
+  when: "'storage' in group_names"
+
+- name: Update OCI CLI path
+  ansible.builtin.lineinfile:
+    path: "{{ ocivip_dest_path }}"
+    regexp: '^OCF_RESKEY_ocicli_default='
+    line: "OCF_RESKEY_ocicli_default={{ oci_cli_path }}"
+    state: present
+  when: "'storage' in group_names"
+
+- name: Configure UTF-8 locale for OCI CLI compatibility
+  ansible.builtin.blockinfile:
+    path: "{{ ocivip_dest_path }}"
+    insertafter: '^export OCI_CLI_AUTH=instance_principal'
+    block: |
+      export LC_ALL=C.UTF-8
+      export LANG=C.UTF-8
+    state: present
+  when: "'storage' in group_names"
+
+# The upstream agent selects the first VNIC returned by instance metadata.
+# That is the storage VNIC on dual-NIC servers, whereas the HA VIP belongs to
+# the filesystem VNIC. Select the VNIC whose subnet contains the requested
+# VIP, which also continues to select the sole VNIC on single-NIC servers.
+- name: Make OCI-VIP agent select the VNIC and guest interface that contain the VIP
+  ansible.builtin.replace:
+    path: "{{ ocivip_dest_path }}"
+    regexp: '^VNIC_ID=.*$\nPRIMARY_IFACE=.*$'
+    replace: |-
+      VNIC_ID="$(curl -s -H "Authorization: Bearer Oracle" -L http://169.254.169.254/opc/v2/vnics/ | /usr/bin/python3 -c 'import ipaddress,json,sys; vip=ipaddress.ip_address(sys.argv[1]); vnic=next(v for v in json.load(sys.stdin) if vip in ipaddress.ip_network(v["subnetCidrBlock"], strict=False)); print(vnic["vnicId"])' "$SECONDARY_PRIVATE_IP")"
+      PRIMARY_IFACE="$(curl -s -H "Authorization: Bearer Oracle" -L http://169.254.169.254/opc/v2/vnics/ | /usr/bin/python3 -c 'import ipaddress,json,subprocess,sys; vip=ipaddress.ip_address(sys.argv[1]); vnic=next(v for v in json.load(sys.stdin) if vip in ipaddress.ip_network(v["subnetCidrBlock"], strict=False)); mac=vnic["macAddr"].lower(); line=next(line for line in subprocess.check_output(["ip","-o","link","show"], universal_newlines=True).splitlines() if "link/ether "+mac in line.lower()); print(line.split(":",2)[1].strip().split("@",1)[0])' "$SECONDARY_PRIVATE_IP")"
+  when: "'storage' in group_names"
+
+# The upstream agent returns OCF_NOT_RUNNING (7) when the VIP has already
+# disappeared from the host. That is correct for monitor, but wrong for stop:
+# OCF stop actions must be idempotent. Returning 7 from stop makes Pacemaker
+# consider the node unsafe and can trigger STONITH.
+- name: Make OCI-VIP agent stop action idempotent
+  ansible.builtin.replace:
+    path: "{{ ocivip_dest_path }}"
+    regexp: '(?s)ocivip_stop\(\) \{.*?\n\}\n\nocivip_monitor\(\)'
+    replace: |-
+      ocivip_stop() {
+          PRIVATE_IPS="$($OCICLI network private-ip list --vnic-id "$VNIC_ID" 2>&1)"
+          RETOCI=$?
+          if [ $RETOCI -ne 0 ]; then
+              ocf_exit_reason "Unable to list OCI private IPs for VNIC ${VNIC_ID}"
+              return $OCF_ERR_GENERIC
+          fi
+
+          # An absent OCI VIP is already stopped. Only unassign it when present.
+          if printf '%s\n' "$PRIVATE_IPS" | grep -Fq "$SECONDARY_PRIVATE_IP"; then
+              $OCICLI network vnic unassign-private-ip --vnic-id "$VNIC_ID" \
+                  --ip-address "$SECONDARY_PRIVATE_IP"
+              RETOCI=$?
+              if [ $RETOCI -ne 0 ]; then
+                  ocf_exit_reason "Unable to unassign OCI private IP ${SECONDARY_PRIVATE_IP}"
+                  return $OCF_ERR_GENERIC
+              fi
+              sleep "${OCF_RESKEY_api_delay}"
+          fi
+
+          # An absent guest address is also already stopped. Do not use an
+          # interface alias here: iproute2 operates on the base interface.
+          if ip -o -4 addr show dev "$PRIMARY_IFACE" | grep -Fq "${SECONDARY_PRIVATE_IP}/"; then
+              ip addr del "${SECONDARY_PRIVATE_IP}/${CIDR_NETMASK}" dev "$PRIMARY_IFACE"
+              RETIP=$?
+              if [ $RETIP -ne 0 ]; then
+                  ocf_exit_reason "Unable to remove guest address ${SECONDARY_PRIVATE_IP} from ${PRIMARY_IFACE}"
+                  return $OCF_ERR_GENERIC
+              fi
+          fi
+
+          ocf_log info "secondary_private_ip has been successfully brought down (${SECONDARY_PRIVATE_IP})"
+          return $OCF_SUCCESS
+      }
+
+      ocivip_monitor()
+  when: "'storage' in group_names"
+
+- name: Ensure OCI-VIP resource agent permissions
+  ansible.builtin.file:
+    path: "{{ ocivip_dest_path }}"
+    state: file
+    owner: root
+    group: root
+    mode: '0755'
+  when: "'storage' in group_names"
+
+- name: Restore OCI-VIP resource agent SELinux context
+  ansible.builtin.command:
+    argv:
+      - restorecon
+      - -v
+      - "{{ ocivip_dest_path }}"
+  register: ocivip_restorecon
+  changed_when: ocivip_restorecon.stdout | length > 0
+  when: "'storage' in group_names"
+
+- name: Validate OCI-VIP resource agent shell syntax
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - -n
+      - "{{ ocivip_dest_path }}"
+  changed_when: false
+  when: "'storage' in group_names"
+
+- name: Validate OCI-VIP resource agent metadata
+  ansible.builtin.command:
+    argv:
+      - "{{ ocivip_dest_path }}"
+      - meta-data
+  environment:
+    OCF_ROOT: /usr/lib/ocf
+    OCF_RESOURCE_INSTANCE: "{{ pacemaker_vip_resource_name }}"
+  register: ocivip_metadata
+  changed_when: false
+  failed_when:
+    - ocivip_metadata.rc != 0 or '<resource-agent name="ocivip">' not in ocivip_metadata.stdout
+  when: "'storage' in group_names"
+
+- name: Check configured OCI VIP resource
+  ansible.builtin.command: "pcs resource config {{ pacemaker_vip_resource_name }}"
+  register: vip_resource_check
+  changed_when: false
+  failed_when: false
+  when: not (ocivip_agent_preflight_only | default(false) | bool)
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+# Terraform reserves the private IP in OCI, but OCI does not configure it
+# inside the guest. Resolve the Linux interface from the VNIC metadata by CIDR
+# so a dual-NIC server never places a filesystem VIP on its storage interface.
+- name: Resolve the guest interface for the OCI VIP
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - -c
+      - |
+        import ipaddress
+        import json
+        import subprocess
+        import sys
+        import urllib.request
+
+        vip = ipaddress.ip_address(sys.argv[1])
+        request = urllib.request.Request(
+            "http://169.254.169.254/opc/v2/vnics/",
+            headers={"Authorization": "Bearer Oracle"},
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            vnics = json.load(response)
+        target = next(
+            vnic for vnic in vnics
+            if vip in ipaddress.ip_network(vnic["subnetCidrBlock"], strict=False)
+        )
+        target_mac = target["macAddr"].lower()
+        for line in subprocess.check_output(
+            ["ip", "-o", "link", "show"], universal_newlines=True
+        ).splitlines():
+            if "link/ether " + target_mac in line.lower():
+                print(line.split(":", 2)[1].strip().split("@", 1)[0])
+                break
+        else:
+            raise RuntimeError("No Linux interface found for OCI VNIC " + target["vnicId"])
+      - "{{ nfs_server_ip }}"
+  register: ocivip_guest_interface
+  changed_when: false
+  when: not (ocivip_agent_preflight_only | default(false) | bool)
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Bring up the guest interface that owns the OCI VIP
+  ansible.builtin.command:
+    argv:
+      - ip
+      - link
+      - set
+      - dev
+      - "{{ ocivip_guest_interface.stdout }}"
+      - up
+  changed_when: false
+  when: not (ocivip_agent_preflight_only | default(false) | bool)
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Remove a VIP previously seeded on the default interface
+  ansible.builtin.command:
+    argv:
+      - ip
+      - address
+      - del
+      - "{{ nfs_server_ip }}/{{ ocivip_cidr_netmask }}"
+      - dev
+      - "{{ hostvars[pacemaker_primary_node].ansible_default_ipv4.interface }}"
+  register: ocivip_remove_default_interface
+  changed_when: ocivip_remove_default_interface.rc == 0
+  failed_when: false
+  when:
+    - not (ocivip_agent_preflight_only | default(false) | bool)
+    - ocivip_guest_interface.stdout != hostvars[pacemaker_primary_node].ansible_default_ipv4.interface
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Create OCI VIP resource in the NFS resource group
+  ansible.builtin.command: >-
+    pcs resource create {{ pacemaker_vip_resource_name }}
+    ocf:heartbeat:ocivip secondary_private_ip={{ nfs_server_ip }}
+    cidr_netmask={{ ocivip_cidr_netmask }}
+    interface_alias={{ ocivip_interface_alias }}
+    op monitor timeout=30s interval=20s OCF_CHECK_LEVEL=0
+    --group {{ pacemaker_nfs_resource_group }}
+  when:
+    - not (ocivip_agent_preflight_only | default(false) | bool)
+    - vip_resource_check.rc != 0
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

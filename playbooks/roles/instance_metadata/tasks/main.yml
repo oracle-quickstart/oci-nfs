@@ -1,0 +1,3 @@
+---
+- name: Gather and Set OCI Metadata Facts
+  include_tasks: gather_facts.yml

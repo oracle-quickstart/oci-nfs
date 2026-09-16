@@ -1,0 +1,44 @@
+---
+- name: Collect NFS resource group members
+  ansible.builtin.command: pcs resource group list
+  register: pacemaker_resource_group_list
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Build desired NFS resource group membership
+  ansible.builtin.set_fact:
+    pacemaker_nfs_group_members: >-
+      {{
+        (pacemaker_resource_group_list.stdout
+        | regex_replace('^' ~ pacemaker_nfs_resource_group ~ ':\\s*', '')).split()
+      }}
+    pacemaker_nfs_group_resources: >-
+      {{
+        (filesystems | selectattr('enabled') | map(attribute='lv_name') | list)
+        + (filesystems | selectattr('enabled') | map(attribute='name') | list)
+        + [pacemaker_nfs_resource_name, pacemaker_vip_resource_name]
+      }}
+  run_once: true
+
+- name: Add missing resources to the NFS resource group
+  ansible.builtin.command: >-
+    pcs resource group add {{ pacemaker_nfs_resource_group }} {{ item }}
+  loop: "{{ pacemaker_nfs_group_resources }}"
+  when: item not in pacemaker_nfs_group_members
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Resume Pacemaker resource management
+  ansible.builtin.command: pcs property set maintenance-mode=false
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Enable and wait for the NFS resource group
+  ansible.builtin.command: >-
+    pcs resource enable {{ pacemaker_nfs_resource_group }}
+    --wait={{ pacemaker_resource_enable_timeout }}
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

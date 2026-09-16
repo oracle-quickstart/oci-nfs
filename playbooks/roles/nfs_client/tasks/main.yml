@@ -1,0 +1,6 @@
+---
+- name: Validate NFS client configuration
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Mount NFS filesystems
+  ansible.builtin.include_tasks: mount.yml

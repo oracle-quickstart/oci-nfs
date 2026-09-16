@@ -1,0 +1,8 @@
+---
+- name: Activate NFS HA tuned profile
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/tuned-adm
+      - profile
+      - "{{ nfs_ha_tuning_profile }}"
+  changed_when: true

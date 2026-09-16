@@ -1,0 +1,155 @@
+---
+- name: Select data disks for the filesystem
+  ansible.builtin.set_fact: 
+    target_disk: >-
+      {{
+        block_vols[:fs_item.disk_count]
+      }}
+  run_once: true
+
+- name: Set dev path 
+  ansible.builtin.set_fact: 
+    disks_path: "/dev/{{ item.key }}"
+  loop: "{{ target_disk }}"
+  register: disk_temp
+
+- name: make a list
+  ansible.builtin.set_fact: 
+    target_list: "{{ disk_temp.results | map(attribute='ansible_facts.disks_path') | list }}"
+
+- name: Inspect selected disks for existing physical volumes
+  ansible.builtin.command:
+    argv:
+      - pvs
+      - --noheadings
+      - --readonly
+      - --foreign
+      - -o
+      - vg_name
+      - "{{ item }}"
+  loop: "{{ target_list }}"
+  register: pv_inspection
+  changed_when: false
+  failed_when: false
+  run_once: true
+
+- name: Ensure selected disks are unused or belong to the expected volume group
+  ansible.builtin.assert:
+    that:
+      - item.rc != 0 or (item.stdout | trim) in ['', fs_item.vg_name]
+    fail_msg: >-
+      Refusing to initialize {{ item.item }} because it already belongs to
+      volume group '{{ item.stdout | trim }}', not '{{ fs_item.vg_name }}'.
+  loop: "{{ pv_inspection.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  run_once: true
+
+- name: Create missing physical volumes
+  ansible.builtin.command:
+    argv:
+      - pvcreate
+      - "{{ item.item }}"
+  loop: "{{ pv_inspection.results }}"
+  when: item.rc != 0 or (item.stdout | trim) == ''
+  register: pv_result
+  changed_when: "'created' in pv_result.stdout"
+  failed_when: pv_result.rc != 0
+  run_once: true
+
+- name: Create Volume Group with multiple drives
+  command: "vgcreate --setautoactivation n {{ fs_item.vg_name }} {{ target_list | join(' ') }}"
+  register: vg_result
+  changed_when: "'created' in vg_result.stdout"
+  failed_when: "vg_result.rc != 0 and 'already exists' not in vg_result.stderr"
+  run_once: true 
+
+- name: Inspect the configured logical volume
+  ansible.builtin.command:
+    argv:
+      - lvs
+      - --noheadings
+      - --foreign
+      - -o
+      - lv_name
+      - "{{ fs_item.vg_name }}/{{ fs_item.lv_name }}"
+  register: lv_inspection
+  changed_when: false
+  failed_when: false
+  run_once: true
+
+- name: Create the logical volume when it is absent
+  ansible.builtin.command:
+    argv:
+      - lvcreate
+      - -l
+      - 100%FREE
+      - -n
+      - "{{ fs_item.lv_name }}"
+      - "{{ fs_item.vg_name }}"
+  register: lv_result
+  changed_when: "'created' in lv_result.stdout"
+  failed_when: lv_result.rc != 0
+  when: lv_inspection.rc != 0 or (lv_inspection.stdout | trim) == ''
+  run_once: true
+
+- name: Verify the configured logical volume exists
+  ansible.builtin.command:
+    argv:
+      - lvs
+      - --noheadings
+      - --foreign
+      - -o
+      - lv_name
+      - "{{ fs_item.vg_name }}/{{ fs_item.lv_name }}"
+  register: lv_verified
+  changed_when: false
+  failed_when: lv_verified.rc != 0 or (lv_verified.stdout | trim) != fs_item.lv_name
+  run_once: true
+
+- name: Check whether the logical volume is locally active
+  ansible.builtin.stat:
+    path: "/dev/{{ fs_item.vg_name }}/{{ fs_item.lv_name }}"
+  register: lv_device
+  changed_when: false
+
+- name: Inspect logical volume filesystem type
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - TYPE
+      - "/dev/{{ fs_item.vg_name }}/{{ fs_item.lv_name }}"
+  register: lv_filesystem
+  changed_when: false
+  failed_when: false
+  when: lv_device.stat.exists
+
+- name: Format an unformatted active logical volume with XFS
+  ansible.builtin.command:
+    argv:
+      - mkfs.xfs
+      - "/dev/{{ fs_item.vg_name }}/{{ fs_item.lv_name }}"
+  register: mkfs_result
+  changed_when: true
+  when:
+    - lv_device.stat.exists
+    - lv_filesystem.stdout | trim == ''
+
+- name: Create Mount Point and Mount Volume
+  block:
+    - name: Ensure mount directory exists
+      file:
+        path: "{{ fs_item.path }}"
+        state: directory
+
+    - name: Mount the filesystem
+      ansible.posix.mount:
+        path: "{{ fs_item.path }}"
+        src: "/dev/{{ fs_item.vg_name }}/{{ fs_item.lv_name }}"
+        fstype: xfs
+        fstab: "{{ '/tmp/ha-nfs-fstab' if fs_ha | bool else '/etc/fstab' }}"
+        state: mounted
+      when: lv_device.stat.exists

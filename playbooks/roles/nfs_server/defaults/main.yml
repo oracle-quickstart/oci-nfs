@@ -1,0 +1,5 @@
+---
+nfs_export_subdirectory: exports
+nfs_export_options: '(rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks)'
+nfs_export_client_cidrs: []
+nfs_shared_infodir_name: nfsinfo

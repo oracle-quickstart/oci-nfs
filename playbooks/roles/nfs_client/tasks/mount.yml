@@ -1,0 +1,40 @@
+---
+- name: Ensure rpcbind is running
+  ansible.builtin.service:
+    name: rpcbind
+    state: started
+    enabled: true
+
+- name: Create NFS client mount root
+  ansible.builtin.file:
+    path: "{{ nfs_client_mount_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create NFSv3 and NFSv4 client mount directories
+  ansible.builtin.file:
+    path: "{{ nfs_client_mount_root }}/{{ item.0.name }}{{ item.1.mount_suffix }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ nfs_client_enabled_filesystems | product(nfs_client_mount_versions) | list }}"
+  loop_control:
+    label: "{{ item.0.name }} ({{ item.1.name }})"
+
+- name: Mount enabled filesystems with NFSv3 and NFSv4
+  ansible.posix.mount:
+    path: "{{ nfs_client_mount_root }}/{{ item.0.name }}{{ item.1.mount_suffix }}"
+    src: "{{ nfs_server_ip }}:{{ item.0.path }}/{{ nfs_export_subdirectory }}"
+    fstype: nfs
+    opts: "{{ item.1.options }}"
+    state: mounted
+  loop: "{{ nfs_client_enabled_filesystems | product(nfs_client_mount_versions) | list }}"
+  loop_control:
+    label: "{{ item.0.name }} ({{ item.1.name }})"
+  register: nfs_client_mount
+  retries: "{{ nfs_client_mount_retries }}"
+  delay: 10
+  until: nfs_client_mount is succeeded

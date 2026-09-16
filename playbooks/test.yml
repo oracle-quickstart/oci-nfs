@@ -1,0 +1,7 @@
+---
+- name: Pacemaker
+  hosts: storage
+  become: true
+  roles: 
+    - storage_config
+   

@@ -4,9 +4,9 @@ resource "oci_core_instance" "monitoring_server" {
   availability_domain = local.ad
 
   #fault_domain        = "FAULT-DOMAIN-3"
-  compartment_id      = var.compartment_ocid
-  display_name        = "${local.cluster_name}_${var.monitoring_server_hostname}"
-  shape               = var.monitoring_server_shape
+  compartment_id = var.compartment_ocid
+  display_name   = "${local.cluster_name}_${var.monitoring_server_hostname}"
+  shape          = var.monitoring_server_shape
 
   source_details {
     source_type = "image"
@@ -16,7 +16,7 @@ resource "oci_core_instance" "monitoring_server" {
   create_vnic_details {
     subnet_id        = local.storage_subnet_id
     hostname_label   = var.monitoring_server_hostname
-    assign_public_ip    = "false"
+    assign_public_ip = "false"
   }
 
   /* - Optional
@@ -33,17 +33,14 @@ resource "oci_core_instance" "monitoring_server" {
         tls_private_key.ssh.public_key_openssh
       ]
     )
-    user_data = base64encode(join("\n", list(
-        "#!/usr/bin/env bash",
-        "set -x",
-      )))
-    }
+    user_data = base64encode(data.template_file.bastion_config.rendered)
+  }
 
   dynamic "shape_config" {
     for_each = local.is_monitoring_server_flex_shape
-      content {
-        ocpus = shape_config.value
-      }
+    content {
+      ocpus = shape_config.value
+    }
   }
   agent_config {
     is_management_disabled = true

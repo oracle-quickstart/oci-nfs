@@ -1,0 +1,45 @@
+---
+- name: Install tuned
+  ansible.builtin.package:
+    name: tuned
+    state: present
+
+- name: Create the NFS HA tuned profile directory
+  ansible.builtin.file:
+    path: "/etc/tuned/{{ nfs_ha_tuning_profile }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the NFS HA tuned profile
+  ansible.builtin.template:
+    src: tuned.conf.j2
+    dest: "/etc/tuned/{{ nfs_ha_tuning_profile }}/tuned.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Activate NFS HA tuned profile
+
+- name: Enable and start tuned
+  ansible.builtin.systemd:
+    name: tuned
+    state: started
+    enabled: true
+
+- name: Check the active tuned profile
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/tuned-adm
+      - active
+  register: nfs_ha_tuning_active_profile
+  changed_when: false
+
+- name: Activate the NFS HA tuned profile
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/tuned-adm
+      - profile
+      - "{{ nfs_ha_tuning_profile }}"
+  when: nfs_ha_tuning_profile not in nfs_ha_tuning_active_profile.stdout
+  changed_when: true

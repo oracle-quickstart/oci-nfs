@@ -1,0 +1,68 @@
+---
+- name: Scan and add SSH keys for all hosts
+  ansible.builtin.known_hosts:
+    name: "{{ hostvars[item].ansible_host | default(item) }}"
+    key: "{{ lookup('pipe', 'ssh-keyscan ' + (hostvars[item].ansible_host | default(item)) + ' 2>/dev/null') }}"
+    path: ~/.ssh/known_hosts
+    state: present
+  loop: "{{ groups['all'] }}"
+
+- name: Check if Oracle-Cloud-Agent is-active 
+  ansible.builtin.command: systemctl is-active oracle-cloud-agent 
+  register: active_check
+  failed_when: active_check.rc != 0
+
+# OCI yum repository names are regional.  New private instances can accept SSH
+# before their OCI DNS route is ready, which otherwise lets the packages role
+# fail intermittently on just one host (commonly the qdevice).
+- name: Wait for the regional OCI Yum DNS name on every host
+  ansible.builtin.shell: |
+    set -o pipefail
+    region="$(curl --fail --silent --show-error \
+      -H 'Authorization: Bearer Oracle' \
+      http://169.254.169.254/opc/v2/instance/regionInfo \
+      | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["regionIdentifier"])')"
+    getent ahostsv4 "yum.${region}.oci.oraclecloud.com" >/dev/null
+  args:
+    executable: /bin/bash
+  register: oci_yum_dns
+  changed_when: false
+  retries: 30
+  delay: 10
+  until: oci_yum_dns.rc == 0
+
+- name: Start and Enable Firewall 
+  ansible.builtin.systemd: 
+    name: firewalld 
+    state: started
+    enabled: true
+ 
+- name: Permit high-availability service
+  ansible.posix.firewalld:
+    service: high-availability
+    permanent: true
+    state: enabled
+    immediate: true
+
+- name: Permit NFS services 
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop: 
+    - nfs
+    - mountd 
+    - rpc-bind  
+
+- name: Ensure every inventory host resolves on every node
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^{{ hostvars[item].ansible_host }}\\s+"
+    line: "{{ hostvars[item].ansible_host }} {{ item }}"
+    state: present
+  loop: "{{ groups['all'] }}"
+
+ # TODO retry/restart and plugin activation check 
+ # TODO NTP server check 
+ # TODO softdog and watchdog ( bootstrap and post deploy check ) 
