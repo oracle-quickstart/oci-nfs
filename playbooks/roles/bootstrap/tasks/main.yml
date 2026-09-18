@@ -1,0 +1,3 @@
+---
+- name: init node bootstrap 
+  include_tasks: bootstrap.yml

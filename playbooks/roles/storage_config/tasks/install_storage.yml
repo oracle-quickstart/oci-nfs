@@ -1,0 +1,70 @@
+---
+- name: Build list of all available nvme disks
+  ansible.builtin.set_fact:
+    nvme_disks: "{{ nvme_disks | default([]) + [item] }}"
+  when: (not item.value.partitions) and ('nvme' in item.key)
+  with_dict: "{{ hostvars[inventory_hostname].ansible_devices }}"
+
+- name: Resolve SBD device kernel name
+  ansible.builtin.command: "readlink -f {{ sbd_device }}"
+  register: storage_sbd_device
+  changed_when: false
+
+- name: Record SBD kernel device name
+  ansible.builtin.set_fact:
+    storage_sbd_kernel_device: "{{ storage_sbd_device.stdout | basename }}"
+
+# Exclude the boot disk and the dynamically resolved SBD fencing disk. OCI
+# kernel device names can differ between nodes and are not attachment-order safe.
+- name: Build list of all available block vols
+  ansible.builtin.set_fact:
+    block_vols: "{{ block_vols | default([]) + [item] }}"
+  when:
+    - not item.value.partitions
+    - item.key is match '^sd[b-z][a-z]*'
+    - item.key != storage_sbd_kernel_device
+  with_dict: "{{ hostvars[inventory_hostname].ansible_devices }}"
+
+# LVM configuration required for Pacemaker-managed shared volume groups.
+- name: Remove existing LVM system ID declarations
+  ansible.builtin.replace:
+    path: /etc/lvm/lvm.conf
+    regexp: '(?m)^[ \t]*system_id_source\s*=.*(?:\n|$)'
+    replace: ''
+
+- name: Configure the LVM system ID source
+  ansible.builtin.lineinfile:
+    path: /etc/lvm/lvm.conf
+    insertafter: '^\s*global\s*\{\s*$'
+    line: '        system_id_source = "uname"'
+    state: present
+
+- name: Remove existing LVM auto-activation declarations
+  ansible.builtin.replace:
+    path: /etc/lvm/lvm.conf
+    regexp: '(?m)^(?!\s*#).*auto_activation_volume_list\s*=.*(?:\n|$)'
+    replace: ''
+
+- name: Disable automatic activation of the shared volume group
+  ansible.builtin.lineinfile:
+    path: /etc/lvm/lvm.conf
+    insertbefore: '^\s*# Configuration option activation/read_only_volume_list\.'
+    line: '        auto_activation_volume_list = [ "ocivolume" ]'
+    state: present
+
+- name: Validate LVM configuration
+  ansible.builtin.command: lvmconfig --validate
+  changed_when: false
+
+## Config LVM 
+- name: Config LVM
+  include_tasks: configure_lvm.yml
+  loop: "{{ filesystems }}"
+  loop_control:
+    loop_var: fs_item
+  # The initial LVM system ID belongs to the node that will perform the
+  # pre-Pacemaker handoff.  Do not rely on run_once here: with included tasks,
+  # its selected host can differ from the storage group's first host.
+  when:
+    - fs_item.enabled
+    - inventory_hostname == groups['storage'][0]

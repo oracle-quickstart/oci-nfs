@@ -4,93 +4,111 @@
 ###
 
 # default, do not change.
-variable fs_name {
+variable "fs_name" {
   default = "NFS"
 }
 
 
 # "Scratch" or "Persistent" file system.  Highly Available NFS Server is only supported on fs_type = "Persistent".  "Persistent" file system uses network attached shared block volume storage.   "Scratch" file system is built using local NVMe SSDs attached to compute instances.
-variable fs_type {
+variable "fs_type" {
   default = "Persistent"
 }
 
 # Deploy file system with high availability (2 node file server in active/passive mode) or single node file server.
-variable fs_ha {
-  default = "false"
+variable "fs_ha" {
+  type    = bool
+  default = true
 }
 
+variable "vcn_compartment" {
+  default = ""
+}
 
 # To use existing VCN or new VCN.
-variable use_existing_vcn {
+variable "use_existing_vcn" {
   default = "false"
 }
 
 # Existing VCN OCID, if use_existing_vcn = true
-variable vcn_id {
+variable "vcn_id" {
   default = ""
 }
 
 # Bastion Subnet - Ensure the Subnet is in the same availability domain selected above or use regional subnet
-variable bastion_subnet_id {
+variable "bastion_subnet_id" {
   default = ""
 }
 
 # Enter private subnet OCID to be used to deploy NFS servers. This will be the primary subnet used by the server to access boot/OS disk and network attached data Block Volumes. Ensure the Subnet is in the same availability domain selected above or use regional subnet. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs.
-variable storage_subnet_id {
+variable "storage_subnet_id" {
   default = ""
 }
 
 # Only set this value, if you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers. Otherwise leave it blank. This 2nd private subnet OCID will be used to create a secondary VNIC using 2nd physical NIC. For Baremetal nodes(except BM.HPC2.36), we need two subnets to use both physical NICs of the node for highest performance. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs.
-variable fs_subnet_id {
+variable "fs_subnet_id" {
   default = ""
 }
 
 # VCN IP Range/Network CIDR to use for VCN.
-variable vcn_cidr { default = "10.0.0.0/16" }
+variable "vcn_cidr" { default = "10.0.0.0/16" }
 # Subnet IP Range/CIDR to use for regional public subnet. Example: 10.0.0.0/24. Must be within VCN subnet.
-variable bastion_subnet_cidr { default = "10.0.0.0/24" }
+variable "bastion_subnet_cidr" { default = "10.0.0.0/24" }
 # Subnet IP Range/CIDR to use for regional private subnet. This will be the primary subnet used by NFS file servers & Quorum node to access boot/OS disk and network attached data Block Volumes. Example: 10.0.3.0/24. Must be within VCN subnet.
-variable storage_subnet_cidr { default = "10.0.3.0/24" }
+variable "storage_subnet_cidr" { default = "10.0.3.0/24" }
 # Only set this value, if you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers. This 2nd private regional subnet will be used to create a secondary VNIC on file servers using 2nd physical NIC to achieve highest performance. Example: 10.0.6.0/24. Must be within VCN subnet.
-variable fs_subnet_cidr { default = "10.0.6.0/24" }
+variable "fs_subnet_cidr" { default = "10.0.6.0/24" }
 
 
 # Bastion node variables
-variable bastion_shape { default = "VM.Standard2.1" }
+variable "bastion_shape" { default = "VM.Standard2.1" }
 # Number of OCPU's for flex shape
-variable bastion_ocpus { default = "1" }
-variable bastion_node_count { default = 1 }
-variable bastion_hostname_prefix { default = "bastion-" }
+variable "bastion_ocpus" { default = "1" }
+variable "bastion_node_count" { default = 1 }
+variable "bastion_hostname_prefix" { default = "bastion-" }
 # min 50GB, Recommend using at least 100 GB in production to ensure there is enough space for logs.
-variable bastion_boot_volume_size { default = "100" }
+variable "bastion_boot_volume_size" { default = "100" }
 
 
 # NFS Storage Server variables
-variable persistent_storage_server_shape { default = "VM.Standard2.2" }
+variable "persistent_storage_server_shape" { default = "VM.Standard2.2" }
 # Number of OCPU's for flex shape
-variable storage_server_ocpus { default = "2" }
-variable storage_server_memory { default = 16 }
-variable storage_server_custom_memory { default = false }
-variable scratch_storage_server_shape { default = "VM.DenseIO2.16" }
-variable storage_server_hostname_prefix { default = "nfs-server-" }
+variable "storage_server_ocpus" { default = "2" }
+variable "storage_server_memory" { default = 16 }
+variable "storage_server_custom_memory" { default = false }
+variable "scratch_storage_server_shape" { default = "VM.DenseIO2.16" }
+variable "storage_server_hostname_prefix" { default = "nfs-server-" }
 # Recommend using 200-300 GB in production to ensure there is enough space for logs.
-variable storage_server_boot_volume_size { default = "300" }
+variable "storage_server_boot_volume_size" { default = "300" }
 
 
-# Only applicable if you plan to deploy NFS with HA (fs_ha = true, fs_type="Persistent")
-# Floating Virtual IP which gets assigned to an active node in an active/passive HA cluster. NFS clients will use this IP to connect to NFS cluster. If you plan to use Bare metal compute shapes (except BM.HPC2.36) for NFS file servers, then provide an unused private IP from the 'secondary subnet'. For Baremetal nodes, we need two subnets to use both physical NICs of the node for highest performance. If you plan to use VM .x or BM.HPC2.36 compute shapes for NFS file servers, then provide an unused private IP from 'primary subnet' to be used to install NFS servers. Refer to architecture diagrams here: https://github.com/oracle-quickstart/oci-nfs.
-# example: 10.0.3.200 or 10.0.6.200
-variable ha_vip_private_ip {  default = "10.0.3.200" }
+# Only applicable when fs_ha = true. Leave unset to let OCI allocate a valid
+# address in the VNIC subnet selected for the HA VIP.
+variable "ha_vip_private_ip" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "Optional fixed HA VIP. Leave unset to let OCI allocate an address."
+
+  validation {
+    condition = var.ha_vip_private_ip == null ? true : (
+      trimspace(var.ha_vip_private_ip) == "" ? true : (
+        !strcontains(trimspace(var.ha_vip_private_ip), ":") &&
+        can(cidrhost("${trimspace(var.ha_vip_private_ip)}/32", 0))
+      )
+    )
+    error_message = "ha_vip_private_ip must be a valid IPv4 address when provided."
+  }
+}
 # Make sure its unique within the subnet.  Use hyphen, not underscore, if required.
-variable ha_vip_hostname {  default = "nfs-vip-xxx" }
+variable "ha_vip_hostname" { default = "nfs-vip-xxx" }
 
 
 
 # Quorum node - mandatory for HA.  Not required for single server NFS
-variable quorum_server_shape { default = "VM.Standard2.2" }
+variable "quorum_server_shape" { default = "VM.Standard2.2" }
 # Number of OCPU's for flex shape
-variable quorum_server_ocpus { default = "1" }
-variable quorum_server_hostname { default = "qdevice" }
+variable "quorum_server_ocpus" { default = "1" }
+variable "quorum_server_hostname" { default = "qdevice" }
 
 # Stonith/Fencing
 # Implemented using SBD fencing agent, shared disk/multi-attach (/dev/oracleoci/oraclevdb) and s/w watchdog (softdog)
@@ -100,18 +118,18 @@ variable quorum_server_hostname { default = "qdevice" }
 
 # Client/Compute nodes variables - nodes which will mount the filesystem - optional.  Set to false, if client nodes are not needed.
 variable "create_compute_nodes" { default = "true" }
-variable client_node_shape { default = "VM.Standard2.24" }
+variable "client_node_shape" { default = "VM.Standard2.24" }
 # Number of OCPU's for flex shape
-variable client_node_ocpus { default = "1" }
-variable client_node_count { default = 0 }
-variable client_node_hostname_prefix { default = "client-" }
+variable "client_node_ocpus" { default = "1" }
+variable "client_node_count" { default = 0 }
+variable "client_node_hostname_prefix" { default = "client-" }
 
 
 # FS related variables
-variable mount_point { default = "/mnt/nfs" }
+variable "mount_point" { default = "/mnt/nfs" }
 # 
 # LVM block/stripe size. In kilobytes. LVM Default is 64 (64KB)  128 = 128KB, 256 = 256KB, 1024 = 1024KB (1MB)
-variable block_size { default = "64" }
+variable "block_size" { default = "64" }
 
 
 # This is currently used for Terraform deployment.
@@ -121,40 +139,40 @@ variable "ad_number" {
 }
 
 
-variable fs1_disk_perf_tier {
-  default = "Higher Performance"
-  description = "Select block volume storage performance tier based on your performance needs. Refer to variable volume_type_vpus_per_gb_mapping for valid values, eg: Higher Performance, Balanced, Lower Cost, Ultra High Performance - 120VPUs, Ultra High Performance - 30VPUs, etc..."
+variable "fs1_disk_perf_tier" {
+  default     = "Higher Performance"
+  description = "Select block volume storage performance tier based on your performance needs. Valid values are Higher Performance, Balanced, or Lower Cost."
 }
 
-variable fs1_disk_count {
-  default = "6"
+variable "fs1_disk_count" {
+  default     = "6"
   description = "Number of block volume disk for entire filesystem (not per file server). If var.fs_ha  was set to true, then these Block volumes will be shared by both NFS file servers, otherwise a single node NFS server will be deployed with Block volumes. Block volumes are more durable and highly available."
 }
 
 
-variable fs1_disk_size {
-  default = "800"
+variable "fs1_disk_size" {
+  default     = "800"
   description = "Select size in GB for each block volume/disk, min 50.  Total NFS filesystem raw capacity will be NUMBER OF BLOCK VOLUMES * BLOCK VOLUME SIZE."
 }
 
 
 # Create a node to run Grafana/Prometheus for monitoring NFS and OCI IaaS.
-variable create_monitoring_server { default = "false" }
-variable monitoring_server_shape { default = "VM.Standard2.1" }
+variable "create_monitoring_server" { default = "false" }
+variable "monitoring_server_shape" { default = "VM.Standard2.1" }
 # Number of OCPU's for flex shape
-variable monitoring_server_ocpus { default = "1" }
-variable monitoring_server_hostname { default = "nfs-grafana" }
+variable "monitoring_server_ocpus" { default = "1" }
+variable "monitoring_server_hostname" { default = "nfs-grafana" }
 
 
-variable instance_os {
-    description = "Operating system for compute instances"
-    default = "Oracle Linux"
+variable "instance_os" {
+  description = "Operating system for compute instances"
+  default     = "Oracle Linux"
 }
 
 # Only latest supported OS version works. if I use 7.7, it doesn't return an image ocid.
-variable linux_os_version {
-    description = "Operating system version for compute instances except NAT"
-    default = "7.9"
+variable "linux_os_version" {
+  description = "Operating system version for compute instances except NAT"
+  default     = "8.10"
 }
 
 
@@ -163,37 +181,37 @@ variable linux_os_version {
 ################################################################
 
 
-variable tenancy_ocid {}
-variable region {}
+variable "tenancy_ocid" {}
+variable "region" {}
 
-variable compartment_ocid {
+variable "compartment_ocid" {
   description = "Compartment where infrastructure resources will be created"
 }
-variable ssh_public_key {
+variable "ssh_public_key" {
   description = "SSH Public Key"
 }
 
-variable ssh_user { default = "opc" }
+variable "ssh_user" { default = "opc" }
 
 
 # Not used for normal terraform apply, added for ORM deployments.
-variable ad_name {
+variable "ad_name" {
   default = ""
 }
 
-variable volume_attach_device_mapping {
+variable "volume_attach_device_mapping" {
   type = map(string)
   default = {
-    "0" = "/dev/oracleoci/oraclevdb"
-    "1" = "/dev/oracleoci/oraclevdc"
-    "2" = "/dev/oracleoci/oraclevdd"
-    "3" = "/dev/oracleoci/oraclevde"
-    "4" = "/dev/oracleoci/oraclevdf"
-    "5" = "/dev/oracleoci/oraclevdg"
-    "6" = "/dev/oracleoci/oraclevdh"
-    "7" = "/dev/oracleoci/oraclevdi"
-    "8" = "/dev/oracleoci/oraclevdj"
-    "9" = "/dev/oracleoci/oraclevdk"
+    "0"  = "/dev/oracleoci/oraclevdb"
+    "1"  = "/dev/oracleoci/oraclevdc"
+    "2"  = "/dev/oracleoci/oraclevdd"
+    "3"  = "/dev/oracleoci/oraclevde"
+    "4"  = "/dev/oracleoci/oraclevdf"
+    "5"  = "/dev/oracleoci/oraclevdg"
+    "6"  = "/dev/oracleoci/oraclevdh"
+    "7"  = "/dev/oracleoci/oraclevdi"
+    "8"  = "/dev/oracleoci/oraclevdj"
+    "9"  = "/dev/oracleoci/oraclevdk"
     "10" = "/dev/oracleoci/oraclevdl"
     "11" = "/dev/oracleoci/oraclevdm"
     "12" = "/dev/oracleoci/oraclevdn"
@@ -219,23 +237,13 @@ variable volume_attach_device_mapping {
   }
 }
 
-variable volume_type_vpus_per_gb_mapping {
+variable "volume_type_vpus_per_gb_mapping" {
   type = map(string)
   default = {
-    "Ultra High Performance - 120VPUs" = "120"
-    "Ultra High Performance - 110VPUs" = "110"
-    "Ultra High Performance - 100VPUs" = "100"
-    "Ultra High Performance - 90VPUs" = "90"
-    "Ultra High Performance - 80VPUs" = "80"
-    "Ultra High Performance - 70VPUs" = "70"
-    "Ultra High Performance - 60VPUs" = "60"
-    "Ultra High Performance - 50VPUs" = "50"
-    "Ultra High Performance - 40VPUs" = "40"
-    "Ultra High Performance - 30VPUs" = "30"
     "Higher Performance" = "20"
-    "Balanced" = "10"
-    "Lower Cost" = "0"
-    "None" = "-1"
+    "Balanced"           = "10"
+    "Lower Cost"         = "0"
+    "None"               = "-1"
   }
 }
 
@@ -246,32 +254,39 @@ variable volume_type_vpus_per_gb_mapping {
 # OL78UEK-4.14.35-1902.305.4.el7uek.x86_64
 # Oracle Linux 7.8 UEK Image for filesystem
 # ------------------------------------------------------------------------------------------------------------
-variable mp_listing_id { default = "ocid1.appcataloglisting.oc1..aaaaaaaa26y5fkfvbjmspmuuhpoi6jptq3gc635a3gz72qujfsomvczh2miq" }
-variable mp_listing_resource_id { default = "ocid1.image.oc1..aaaaaaaabxwrflhsoaipmm4v7xvjfsmou42bp2fwpmuvyyug2sksfmroihta" }
-variable mp_listing_resource_version { default = "1.0" }
-variable use_marketplace_image { default = false }
+variable "mp_listing_id" { default = "ocid1.appcataloglisting.oc1..aaaaaaaa26y5fkfvbjmspmuuhpoi6jptq3gc635a3gz72qujfsomvczh2miq" }
+variable "mp_listing_resource_id" { default = "ocid1.image.oc1..aaaaaaaabxwrflhsoaipmm4v7xvjfsmou42bp2fwpmuvyyug2sksfmroihta" }
+variable "mp_listing_resource_version" { default = "1.0" }
+variable "use_marketplace_image" { default = false }
 
 # ------------------------------------------------------------------------------------------------------------
 
 
 
 # Generate a new strong password for hacluster user
-resource random_string hacluster_user_password {
-  length      = 16
-  special     = true
-  min_special = 2
-  upper       = true
-  min_upper   = 2
-  lower       = true
-  min_lower   = 2
-  number      = true
-  min_numeric = 2
+resource "random_string" "hacluster_user_password" {
+  length           = 16
+  special          = true
+  min_special      = 2
+  upper            = true
+  min_upper        = 2
+  lower            = true
+  min_lower        = 2
+  numeric          = true
+  min_numeric      = 2
   override_special = "!@#-_&*=+"
+}
+
+# Generate a stable salt for the hacluster password hash on every cluster node.
+resource "random_string" "hacluster_salt" {
+  length  = 16
+  special = false
 }
 
 
 variable "use_custom_name" {
-  default = 0
+  type    = bool
+  default = false
 }
 
 variable "cluster_name" {
@@ -280,65 +295,7 @@ variable "cluster_name" {
 
 
 
-variable "use_uhp" {
-  default = "false"
-}
-
 variable "use_non_uhp_fs1" {
-  default = "false"
+  type    = bool
+  default = true
 }
-
-variable "use_non_uhp_fs2" {
-  default = "false"
-}
-
-variable "use_non_uhp_fs3" {
-  default = "false"
-}
-
-
-variable "uhp_fs0_disk_perf_tier" {
-  default = "Ultra High Performance - 30VPUs"
-}
-variable "uhp_fs0_disk_count" {
-  default = "1"
-}
-variable "uhp_fs0_disk_size" {
-  default = "50"
-}
-
-/*
-variable "fs1_disk_perf_tier" {
-  default = "Balanced"
-}
-variable "fs1_disk_count" {
-  default = "2"
-}
-variable "fs1_disk_size" {
-  default = "50"
-}
-*/
-
-
-variable "fs2_disk_perf_tier" {
-  default = "Balanced"
-}
-variable "fs2_disk_count" {
-  default = "2"
-}
-variable "fs2_disk_size" {
-  default = "50"
-}
-
-
-
-variable "fs3_disk_perf_tier" {
-  default = "Balanced"
-}
-variable "fs3_disk_count" {
-  default = "3"
-}
-variable "fs3_disk_size" {
-  default = "50"
-}
-

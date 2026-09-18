@@ -1,0 +1,43 @@
+---
+- name: Check configured LVM resources
+  ansible.builtin.command: "pcs resource config {{ item.lv_name }}"
+  loop: "{{ filesystems }}"
+  when: item.enabled | bool
+  register: lvm_resource_checks
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Create LVM resources in the NFS resource group
+  ansible.builtin.command: >-
+    pcs resource create {{ resource_check.item.lv_name }} ocf:heartbeat:LVM-activate
+    vgname={{ resource_check.item.vg_name }} vg_access_mode=system_id
+    op monitor interval=30s timeout=90s
+    op start interval=0s timeout=90s
+    op stop interval=0s timeout=90s
+    --group {{ pacemaker_nfs_resource_group }}
+  loop: "{{ lvm_resource_checks.results }}"
+  loop_control:
+    loop_var: resource_check
+  when:
+    - resource_check.rc is defined
+    - resource_check.rc != 0
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+# Keep the LVM-activate operation values explicit for both newly created and
+# existing clusters, rather than inheriting resource-agent defaults.
+- name: Configure explicit LVM resource operation timeouts
+  ansible.builtin.command: >-
+    pcs resource update {{ resource_check.item.lv_name }}
+    op monitor interval=30s timeout=90s
+    op start interval=0s timeout=90s
+    op stop interval=0s timeout=90s
+  loop: "{{ lvm_resource_checks.results }}"
+  loop_control:
+    loop_var: resource_check
+  when: resource_check.rc is defined
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

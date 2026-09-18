@@ -1,0 +1,44 @@
+---
+- name: Check configured filesystem resources
+  ansible.builtin.command: "pcs resource config {{ item.name }}"
+  loop: "{{ filesystems }}"
+  when: item.enabled | bool
+  register: filesystem_resource_checks
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Create filesystem resources in the NFS resource group
+  ansible.builtin.command: >-
+    pcs resource create {{ resource_check.item.name }} Filesystem
+    device=/dev/{{ resource_check.item.vg_name }}/{{ resource_check.item.lv_name }}
+    directory={{ resource_check.item.path }}
+    fstype={{ pacemaker_filesystem_type }}
+    options={{ pacemaker_filesystem_mount_options }}
+    op monitor interval=20s timeout=40s
+    op start interval=0s timeout=60s
+    op stop interval=0s timeout=200s
+    --group {{ pacemaker_nfs_resource_group }}
+  loop: "{{ filesystem_resource_checks.results }}"
+  loop_control:
+    loop_var: resource_check
+  when:
+    - resource_check.rc is defined
+    - resource_check.rc != 0
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Configure explicit filesystem resource operation timeouts
+  ansible.builtin.command: >-
+    pcs resource update {{ resource_check.item.name }}
+    op monitor interval=20s timeout=40s
+    op start interval=0s timeout=60s
+    op stop interval=0s timeout=200s
+  loop: "{{ filesystem_resource_checks.results }}"
+  loop_control:
+    loop_var: resource_check
+  when: resource_check.rc is defined
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

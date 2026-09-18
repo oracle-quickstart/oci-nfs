@@ -1,0 +1,12 @@
+---
+- name: Configure managed NFS exports
+  ansible.builtin.blockinfile:
+    path: /etc/exports
+    create: true
+    marker: '# {mark} ANSIBLE MANAGED HA NFS EXPORTS'
+    block: |
+      {% for filesystem in nfs_enabled_filesystems %}
+      {% for client_cidr in nfs_export_client_cidrs | unique %}
+      {{ filesystem.path }}/{{ nfs_export_subdirectory }} {{ client_cidr }}{{ nfs_export_options }}
+      {% endfor %}
+      {% endfor %}

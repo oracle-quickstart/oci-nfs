@@ -1,0 +1,21 @@
+---
+- name: Create export directories on the primary storage node
+  ansible.builtin.file:
+    path: "{{ item.path }}/{{ nfs_export_subdirectory }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ nfs_enabled_filesystems }}"
+  run_once: true
+  delegate_to: "{{ groups['storage'][0] }}"
+
+- name: Create shared NFS information directory on the primary storage node
+  ansible.builtin.file:
+    path: "{{ nfs_shared_infodir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  run_once: true
+  delegate_to: "{{ groups['storage'][0] }}"

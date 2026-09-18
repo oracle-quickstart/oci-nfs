@@ -1,0 +1,24 @@
+---
+- name: Check whether Pacemaker already owns the HA filesystem
+  ansible.builtin.command: systemctl is-active pacemaker
+  register: nfs_pacemaker_service
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ groups['storage'][0] }}"
+
+- name: Unmount HA filesystems before Pacemaker takes ownership
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    state: unmounted
+  loop: "{{ nfs_enabled_filesystems }}"
+  when: nfs_pacemaker_service.rc != 0
+  run_once: true
+  delegate_to: "{{ groups['storage'][0] }}"
+
+- name: Deactivate HA volume groups before Pacemaker takes ownership
+  ansible.builtin.command: "vgchange --activate n {{ item.vg_name }}"
+  loop: "{{ nfs_enabled_filesystems }}"
+  when: nfs_pacemaker_service.rc != 0
+  run_once: true
+  delegate_to: "{{ groups['storage'][0] }}"

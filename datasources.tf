@@ -1,6 +1,6 @@
 # Gets a list of Availability Domains
 data "oci_identity_availability_domains" "availability_domains" {
-compartment_id = var.compartment_ocid
+  compartment_id = var.compartment_ocid
 }
 
 data "oci_core_instance" "storage_server" {
@@ -41,33 +41,31 @@ data "oci_core_vcn" "nfs" {
 }
 
 data "oci_core_private_ips" "private_ips_by_vnic" {
-  count   = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? 0 : local.derived_storage_server_node_count ) : 0 )
+  count = (local.storage_server_dual_nics ? (local.storage_server_hpc_shape ? 0 : local.derived_storage_server_node_count) : 0)
   #Optional
-  vnic_id = element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id,  [""]), 0)
+  vnic_id = element(concat(oci_core_vnic_attachment.storage_server_secondary_vnic_attachment.*.vnic_id, [""]), 0)
 }
 
 data "oci_core_images" "InstanceImageOCID" {
-    compartment_id            = var.compartment_ocid
-    operating_system          = var.instance_os
-    operating_system_version  = var.linux_os_version
+  compartment_id   = var.compartment_ocid
+  operating_system = var.instance_os
+  state            = "AVAILABLE"
+  sort_by          = "TIMECREATED"
+  sort_order       = "DESC"
 
-
-    # To remove ampere Arm images.
-    # Oracle-Linux-7.9-aarch64-2021.04.13-0 for Ampere Arm images.
-    # Oracle-Linux-7.9-2021.04.09-0
-    filter {
-      name   = "display_name"
-      values = ["^([a-zA-z]+)-([a-zA-z]+)-([\\.0-9]+)-([\\.0-9-]+)$"]
-      regex  = true
+  # OCI does not consistently return platform images when minor OS version and
+  # flexible shape filters are combined. Select the standard x86 image family
+  # by name, excluding aarch64 and GPU variants.
+  filter {
+    name   = "display_name"
+    values = ["^Oracle-Linux-${replace(var.linux_os_version, ".", "\\.")}-[0-9].*$"]
+    regex  = true
   }
 
-
-/*
-    filter {
-      name   = "display_name"
-      values = ["Oracle-Linux-7.9-2021.04.09-0"]
-      regex  = false
+  lifecycle {
+    postcondition {
+      condition     = length(self.images) > 0
+      error_message = "No standard x86 ${var.instance_os} ${var.linux_os_version} platform image is available in this region."
+    }
   }
-*/
-
 }

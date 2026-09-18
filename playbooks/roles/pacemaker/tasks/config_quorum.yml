@@ -1,0 +1,98 @@
+---
+- name: Validate quorum host inventory
+  ansible.builtin.assert:
+    that:
+      - groups['quorum'] | default([]) | length == 1
+    fail_msg: Exactly one host must be defined in the quorum inventory group.
+  run_once: true
+
+- name: Collect qdevice status
+  ansible.builtin.command: pcs qdevice status net --full
+  register: qdevice_status
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ pacemaker_qdevice_node }}"
+  run_once: true
+
+- name: Initialize qdevice
+  ansible.builtin.command: pcs qdevice setup model net --start --enable
+  register: qdevice_setup
+  changed_when: qdevice_setup.rc == 0
+  failed_when:
+    - qdevice_setup.rc != 0
+    - "'already initialized' not in qdevice_setup.stderr"
+  when: qdevice_status.rc != 0
+  delegate_to: "{{ pacemaker_qdevice_node }}"
+  run_once: true
+
+- name: Ensure qnetd is enabled and running
+  ansible.builtin.systemd:
+    name: corosync-qnetd
+    enabled: true
+    state: started
+  delegate_to: "{{ pacemaker_qdevice_node }}"
+  run_once: true
+
+- name: Verify qdevice service
+  ansible.builtin.command: pcs qdevice status net --full
+  register: qdevice_status
+  changed_when: false
+  retries: 6
+  delay: 5
+  until: qdevice_status.rc == 0
+  delegate_to: "{{ pacemaker_qdevice_node }}"
+  run_once: true
+
+- name: Collect cluster quorum configuration
+  ansible.builtin.command: pcs quorum config
+  register: quorum_config
+  changed_when: false
+  delegate_to: "{{ pacemaker_primary_node }}"
+  run_once: true
+
+- name: Record whether the expected qdevice is configured
+  ansible.builtin.set_fact:
+    pacemaker_qdevice_configured: >-
+      {{ ('Device:' in quorum_config.stdout)
+         and ('Model: net' in quorum_config.stdout)
+         and (('host: ' ~ pacemaker_qdevice_node) in quorum_config.stdout) }}
+  run_once: true
+
+- name: Refuse to replace a different quorum device automatically
+  ansible.builtin.assert:
+    that:
+      - >-
+        ('Device:' not in quorum_config.stdout)
+        or (pacemaker_qdevice_configured | bool)
+    fail_msg: >-
+      A quorum device is already configured, but it does not match the expected
+      net qdevice host {{ pacemaker_qdevice_node }}. Remove or correct it before
+      rerunning this role.
+  run_once: true
+
+- name: Add quorum device to cluster
+  ansible.builtin.command: >-
+    pcs quorum device add model net
+    host={{ pacemaker_qdevice_node }}
+    algorithm=ffsplit
+  delegate_to: "{{ pacemaker_primary_node }}"
+  when: not pacemaker_qdevice_configured | bool
+  run_once: true
+
+- name: Verify cluster quorum device configuration
+  ansible.builtin.command: pcs quorum config
+  register: quorum_config_verified
+  changed_when: false
+  delegate_to: "{{ pacemaker_primary_node }}"
+  run_once: true
+
+- name: Verify expected qdevice is configured
+  ansible.builtin.assert:
+    that:
+      - "'Device:' in quorum_config_verified.stdout"
+      - "'Model: net' in quorum_config_verified.stdout"
+      - "('host: ' ~ pacemaker_qdevice_node) in quorum_config_verified.stdout"
+    fail_msg: >-
+      Pacemaker quorum configuration does not contain the expected net qdevice
+      host {{ pacemaker_qdevice_node }}.
+  run_once: true

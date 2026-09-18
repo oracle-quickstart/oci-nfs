@@ -1,0 +1,24 @@
+---
+# Stable OCI device alias reserved for the shared SBD fencing volume.
+sbd_device: /dev/oracleoci/oraclevdb
+
+# The filesystem list is shared by storage provisioning, NFS exports, and
+# Pacemaker resource creation. Keep environment-specific values in inventory.
+filesystems:
+  - name: "{{ fs1_name }}"
+    enabled: "{{ use_non_uhp_fs1 | bool }}"
+    lv_name: "{{ fs1_lv_name }}"
+    vg_name: "{{ fs1_vg_name }}"
+    path: "{{ fs1_dir }}"
+    disk_perf: "{{ fs1_disk_perf_tier }}"
+    disk_count: "{{ fs1_disk_count }}"
+    disk_size: "{{ fs1_disk_size }}"
+
+nfs_export_subdirectory: exports
+nfs_export_options: '(rw,sync,no_root_squash,no_all_squash,no_subtree_check,insecure_locks)'
+nfs_export_client_cidrs: >-
+  {{
+    [private_storage_subnet_cidr_block, public_subnet_cidr_block]
+    + ([private_fs_subnet_cidr_block] if storage_server_dual_nics | bool else [])
+  }}
+nfs_shared_infodir_name: nfsinfo

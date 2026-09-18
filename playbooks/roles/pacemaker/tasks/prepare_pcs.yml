@@ -1,0 +1,73 @@
+---
+- name: Enable and start pcsd on cluster and quorum hosts
+  ansible.builtin.systemd:
+    name: pcsd
+    state: started
+    enabled: true
+  loop: "{{ groups['storage'] + groups['quorum'] }}"
+  loop_control:
+    loop_var: pacemaker_host
+    label: "{{ pacemaker_host }}"
+  delegate_to: "{{ pacemaker_host }}"
+  run_once: true
+
+- name: Set hacluster password on cluster and quorum hosts
+  ansible.builtin.user:
+    name: hacluster
+    password: "{{ hacluster_user_password | password_hash('sha512', hacluster_salt) }}"
+    update_password: always
+  loop: "{{ groups['storage'] + groups['quorum'] }}"
+  loop_control:
+    loop_var: pacemaker_host
+    label: "{{ pacemaker_host }}"
+  delegate_to: "{{ pacemaker_host }}"
+  no_log: true
+  run_once: true
+
+- name: Validate PCS authentication host names
+  ansible.builtin.assert:
+    that:
+      - groups['storage'] | length == 2
+      - groups['quorum'] | length == 1
+      - >-
+        (groups['storage'] + groups['quorum'])
+        | select('match', '^[A-Za-z0-9][A-Za-z0-9.-]*$')
+        | list | length == 3
+    fail_msg: >-
+      Invalid PCS host list: {{ groups['storage'] + groups['quorum'] }}.
+      Expected two storage host names and one quorum host name.
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Wait for PCS remote configuration service on every cluster host
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[pacemaker_host].ansible_host }}"
+    port: 2224
+    state: started
+    timeout: 60
+  loop: "{{ groups['storage'] + groups['quorum'] }}"
+  loop_control:
+    loop_var: pacemaker_host
+    label: "{{ pacemaker_host }}"
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Build PCS authentication host and address arguments
+  ansible.builtin.set_fact:
+    pcs_auth_host_arguments: >-
+      {{ pcs_auth_host_arguments | default([])
+         + [item, 'addr=' + hostvars[item].ansible_host] }}
+  loop: "{{ groups['storage'] + groups['quorum'] }}"
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Authenticate cluster and quorum hosts
+  ansible.builtin.command:
+    argv: >-
+      {{ ['pcs', 'host', 'auth']
+          + pcs_auth_host_arguments
+          + ['-u', 'hacluster', '-p', hacluster_user_password] }}
+  changed_when: false
+  no_log: true
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

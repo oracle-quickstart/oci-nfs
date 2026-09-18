@@ -1,0 +1,24 @@
+---
+- name: Install cluster packages
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - python36-oci-cli
+      - nfs-utils
+      - nfs4-acl-tools
+      - pcs
+      - pacemaker
+      - corosync
+      - resource-agents 
+      - fence-agents-all
+      - corosync-qdevice
+      - corosync-qnetd
+    state: latest
+    lock_timeout: 180
+  # DNS can become available shortly before DNF's first repository refresh.
+  # Retry the complete transaction so a transient OCI Yum metadata error on a
+  # single node cannot leave a partially provisioned cluster.
+  register: cluster_packages
+  retries: 5
+  delay: 15
+  until: cluster_packages is succeeded

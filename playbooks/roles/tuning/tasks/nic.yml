@@ -1,0 +1,64 @@
+---
+# NIC parameters vary by OCI shape, driver, and VNIC. Do not enable this task
+# until the target values have been verified on the exact shape in use.
+- name: Validate requested NIC tuning
+  ansible.builtin.assert:
+    that:
+      - nfs_ha_tuning_nic_interfaces | length > 0
+      - nfs_ha_tuning_nic_interfaces | select('match', '^[A-Za-z0-9_.:-]+$') | list | length == nfs_ha_tuning_nic_interfaces | length
+      - >-
+        (nfs_ha_tuning_nic_rx_ring is not none and nfs_ha_tuning_nic_tx_ring is not none)
+        or nfs_ha_tuning_nic_combined_queues is not none
+    fail_msg: >-
+      Set an explicit interface list and either both RX/TX ring values or a
+      combined queue count. Inspect supported values first with ethtool -g and
+      ethtool -l on the target host.
+
+- name: Install ethtool for optional NIC tuning
+  ansible.builtin.package:
+    name: ethtool
+    state: present
+
+- name: Inspect supported NIC ring settings
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ethtool
+      - -g
+      - "{{ item }}"
+  loop: "{{ nfs_ha_tuning_nic_interfaces }}"
+  changed_when: false
+
+- name: Inspect supported NIC channel settings
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ethtool
+      - -l
+      - "{{ item }}"
+  loop: "{{ nfs_ha_tuning_nic_interfaces }}"
+  changed_when: false
+
+- name: Apply requested NIC RX and TX ring settings
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ethtool
+      - -G
+      - "{{ item }}"
+      - rx
+      - "{{ nfs_ha_tuning_nic_rx_ring | string }}"
+      - tx
+      - "{{ nfs_ha_tuning_nic_tx_ring | string }}"
+  loop: "{{ nfs_ha_tuning_nic_interfaces }}"
+  when:
+    - nfs_ha_tuning_nic_rx_ring is not none
+    - nfs_ha_tuning_nic_tx_ring is not none
+
+- name: Apply requested NIC combined queue count
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ethtool
+      - -L
+      - "{{ item }}"
+      - combined
+      - "{{ nfs_ha_tuning_nic_combined_queues | string }}"
+  loop: "{{ nfs_ha_tuning_nic_interfaces }}"
+  when: nfs_ha_tuning_nic_combined_queues is not none

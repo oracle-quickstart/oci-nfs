@@ -1,0 +1,5 @@
+---
+# A fresh cluster can restart immediately after SBD is enabled to activate the
+# SBD/watchdog systemd dependency. Keep this disabled for an existing serving
+# cluster unless the deployment is in an approved maintenance window.
+sbd_restart_after_enable: true

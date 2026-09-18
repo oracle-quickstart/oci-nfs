@@ -1,0 +1,14 @@
+---
+- name: Configure Pacemaker resource defaults
+  ansible.builtin.command:
+    argv:
+      - pcs
+      - resource
+      - defaults
+      - update
+      - failure-timeout=15m
+      - migration-threshold=3
+      - resource-stickiness=0
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"

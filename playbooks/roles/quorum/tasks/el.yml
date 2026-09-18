@@ -1,0 +1,23 @@
+- name: Start service pcsd, if not started
+  ansible.builtin.service:
+    name: pcsd
+    state: started
+    enabled: yes
+
+- name: Permit high-availability service in firewall
+  ansible.posix.firewalld:
+    service: high-availability
+    permanent: true
+    state: enabled
+    immediate: true
+
+- name: Restart Firewalld
+  ansible.builtin.service: 
+    name: firewalld 
+    state: restarted
+
+- name: Enable and Start Quroum Device Services  
+  ansible.builtin.command: pcs qdev setup model net --enable --start
+  register: qdevice_start
+  when: "'quorum' in group_names"
+  ignore_errors: true

@@ -1,0 +1,8 @@
+---
+- name: Apply opt-in NFS HA performance tuning
+  ansible.builtin.include_tasks: apply.yml
+  when: nfs_ha_tuning_enabled | bool
+
+- name: Apply optional NIC tuning
+  ansible.builtin.include_tasks: nic.yml
+  when: nfs_ha_tuning_nic_enabled | bool

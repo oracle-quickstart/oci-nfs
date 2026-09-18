@@ -1,0 +1,26 @@
+[main]
+summary=Portable NFS HA throughput tuning for OCI
+
+[cpu]
+governor={{ nfs_ha_tuning_cpu_governor }}
+energy_perf_bias={{ nfs_ha_tuning_energy_perf_bias }}
+
+{% if nfs_ha_tuning_disable_transparent_hugepages | bool %}
+[vm]
+transparent_huge_pages=never
+
+{% endif %}
+[sysctl]
+# Improve throughput for sustained NFS TCP I/O and permit concurrent RPCs.
+net.ipv4.tcp_slow_start_after_idle=0
+net.ipv4.tcp_rmem=4096 87380 {{ nfs_ha_tuning_tcp_buffer_max }}
+net.ipv4.tcp_wmem=4096 65536 {{ nfs_ha_tuning_tcp_buffer_max }}
+net.core.rmem_max={{ nfs_ha_tuning_tcp_buffer_max }}
+net.core.wmem_max={{ nfs_ha_tuning_tcp_buffer_max }}
+net.core.rmem_default={{ nfs_ha_tuning_tcp_buffer_max }}
+net.core.wmem_default={{ nfs_ha_tuning_tcp_buffer_max }}
+net.core.optmem_max={{ nfs_ha_tuning_tcp_buffer_max }}
+net.core.somaxconn={{ nfs_ha_tuning_somaxconn }}
+net.core.netdev_max_backlog={{ nfs_ha_tuning_netdev_max_backlog }}
+sunrpc.tcp_slot_table_entries={{ nfs_ha_tuning_tcp_slot_table_entries }}
+sunrpc.udp_slot_table_entries={{ nfs_ha_tuning_tcp_slot_table_entries }}

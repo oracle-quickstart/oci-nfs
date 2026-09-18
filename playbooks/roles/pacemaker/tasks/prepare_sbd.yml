@@ -1,0 +1,145 @@
+---
+- name: Validate SBD configuration
+  ansible.builtin.assert:
+    that:
+      - sbd_config.device | length > 0
+      - sbd_config.timeout_watchdog | int > 0
+      - sbd_config.timeout_msgwait | int > sbd_config.timeout_watchdog | int
+      - sbd_config.warn_threshold_watchdog_timeout | int > 0
+    fail_msg: The Pacemaker SBD configuration is incomplete or invalid.
+  run_once: true
+
+- name: Ensure SBD is installed
+  ansible.builtin.dnf:
+    name: sbd
+    state: present
+
+# Keep the watchdog module loaded after reboot. OCI does not provide a hardware
+# watchdog to the guest, so the legacy HA implementation uses softdog.
+- name: Configure the SBD watchdog kernel module at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/watchdog.conf
+    content: "{{ sbd_config.watchdog_module }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Read loaded kernel modules
+  ansible.builtin.command: cat /proc/modules
+  register: loaded_kernel_modules
+  changed_when: false
+
+- name: Load the SBD watchdog kernel module
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/modprobe
+      - "{{ sbd_config.watchdog_module }}"
+  when: >-
+    loaded_kernel_modules.stdout is not search('^' ~ sbd_config.watchdog_module ~ ' ')
+  changed_when: true
+
+- name: Verify SBD watchdog device is a character device without opening it
+  # ansible.builtin.stat defaults to get_checksum=true on Ansible 2.9.  That
+  # opens /dev/watchdog, which arms softdog; closing it then leaves a 60-second
+  # reset pending. `test -c` uses metadata only and never opens the device.
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/test
+      - -c
+      - "{{ sbd_config.watchdog_device }}"
+  changed_when: false
+  failed_when: false
+  register: sbd_watchdog_device_check
+
+- name: Assert SBD watchdog device is available
+  ansible.builtin.assert:
+    that: sbd_watchdog_device_check.rc == 0
+    fail_msg: >-
+      SBD watchdog device {{ sbd_config.watchdog_device }} is unavailable on
+      {{ inventory_hostname }} after loading {{ sbd_config.watchdog_module }}.
+
+- name: Configure SBD service
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/sbd
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - regexp: '^#?SBD_DEVICE='
+      line: 'SBD_DEVICE="{{ sbd_config.device }}"'
+    - regexp: '^#?SBD_WATCHDOG_DEV='
+      line: "SBD_WATCHDOG_DEV={{ sbd_config.watchdog_device }}"
+    - regexp: '^#?SBD_PACEMAKER='
+      line: SBD_PACEMAKER=yes
+    - regexp: '^#?SBD_STARTMODE='
+      line: SBD_STARTMODE=always
+    - regexp: '^#?SBD_OPTS='
+      # -W enables SBD watchdog use. Do not specify -W twice: that disables it.
+      line: 'SBD_OPTS="-W"'
+
+- name: Verify SBD device is a block device without opening it
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/test
+      - -b
+      - "{{ sbd_config.device }}"
+  changed_when: false
+  failed_when: false
+  register: sbd_device_check
+
+- name: Assert SBD device is available
+  ansible.builtin.assert:
+    that: sbd_device_check.rc == 0
+    fail_msg: "SBD device {{ sbd_config.device }} is not a block device on {{ inventory_hostname }}."
+
+- name: Check SBD messaging layout
+  ansible.builtin.command: "sbd -d {{ sbd_config.device }} dump"
+  register: sbd_layout
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Create SBD messaging layout
+  ansible.builtin.command: >-
+    sbd -d {{ sbd_config.device }}
+    -4 {{ sbd_config.timeout_msgwait }}
+    -1 {{ sbd_config.timeout_watchdog }}
+    -5 {{ sbd_config.warn_threshold_watchdog_timeout }}
+    create
+  when: sbd_layout.rc != 0
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+# The fence_sbd agent addresses a node by its named SBD slot. Creating the
+# disk header alone leaves every slot unassigned, which makes fencing fail
+# with "node ... not found in node list".
+- name: Read allocated SBD slots
+  ansible.builtin.command: "sbd -d {{ sbd_config.device }} list"
+  register: sbd_slots
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Allocate SBD slots for storage nodes
+  ansible.builtin.command: >-
+    sbd -d {{ sbd_config.device }} allocate {{ item }}
+  loop: "{{ groups['storage'] }}"
+  when: item not in sbd_slots.stdout
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+- name: Verify SBD slots for storage nodes
+  ansible.builtin.command: "sbd -d {{ sbd_config.device }} list"
+  register: sbd_slots_verified
+  changed_when: false
+  failed_when: >-
+    sbd_slots_verified.rc != 0 or
+    (groups['storage'] | reject('in', sbd_slots_verified.stdout) | list | length > 0)
+  run_once: true
+  delegate_to: "{{ pacemaker_primary_node }}"
+
+# Do not enable SBD here.  `pcs cluster setup --start` follows this task and
+# systemd starts enabled SBD as a Corosync dependency.  Starting SBD while the
+# first two-node cluster is still forming can arm the watchdog before fencing
+# has been configured and cause a node to self-fence.  SBD is enabled only
+# after both nodes are online and the fence_sbd resource is validated.

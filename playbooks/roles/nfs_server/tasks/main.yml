@@ -1,0 +1,13 @@
+---
+- name: Validate NFS server configuration
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Prepare shared NFS directories
+  ansible.builtin.include_tasks: prepare_exports.yml
+
+- name: Configure NFS exports
+  ansible.builtin.include_tasks: configure_exports.yml
+
+- name: Hand HA storage ownership to Pacemaker
+  ansible.builtin.include_tasks: handoff_ha_storage.yml
+  when: fs_ha | bool

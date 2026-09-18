@@ -1,0 +1,34 @@
+---
+- name: Create journald drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create persistent system journal directory
+  ansible.builtin.file:
+    path: /var/log/journal
+    state: directory
+    owner: root
+    group: systemd-journal
+    mode: "2755"
+  register: persistent_journal_directory
+
+- name: Configure journald to retain logs across an SBD reboot
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/90-pacemaker-persistent.conf
+    content: |
+      [Journal]
+      Storage=persistent
+    owner: root
+    group: root
+    mode: "0644"
+  register: persistent_journald_config
+
+- name: Restart journald to apply persistent log storage
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+  when: persistent_journal_directory.changed or persistent_journald_config.changed

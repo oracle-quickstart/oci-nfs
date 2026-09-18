@@ -1,0 +1,26 @@
+---
+# This role is intentionally opt-in. Set to true in inventory/group_vars/all.yml
+# only after validating the profile for the selected OCI shape and workload.
+nfs_ha_tuning_enabled: false
+nfs_ha_tuning_profile: nfs-ha-oci-performance
+
+# Safe, portable defaults. The role intentionally does not disable SELinux,
+# reserve a fixed amount of memory, alter disk queues, change SMT, or run
+# ethtool because those settings are hardware- and workload-specific.
+nfs_ha_tuning_cpu_governor: performance
+nfs_ha_tuning_energy_perf_bias: performance
+nfs_ha_tuning_disable_transparent_hugepages: true
+nfs_ha_tuning_tcp_buffer_max: 16777216
+nfs_ha_tuning_tcp_slot_table_entries: 128
+nfs_ha_tuning_netdev_max_backlog: 250000
+nfs_ha_tuning_somaxconn: 8192
+
+# NIC tuning is separately opt-in. Supply actual interface names and values
+# verified with `ethtool -g <interface>` and `ethtool -l <interface>` on the
+# target OCI shape. Values are applied at runtime only; this role does not
+# create rc.local entries or a boot-time systemd unit.
+nfs_ha_tuning_nic_enabled: false
+nfs_ha_tuning_nic_interfaces: []
+nfs_ha_tuning_nic_rx_ring: null
+nfs_ha_tuning_nic_tx_ring: null
+nfs_ha_tuning_nic_combined_queues: null

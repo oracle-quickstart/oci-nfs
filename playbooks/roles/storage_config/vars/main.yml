@@ -1,0 +1,3 @@
+lvm_stripe_size: "{{ block_size | replace('kb', '') | replace('KB', '') | replace('k', '') | replace('K', '') }}"
+
+
