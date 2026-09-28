@@ -4,7 +4,7 @@ oci-nfs template is a solution to deploy NFS server in an active/passive High Av
 
 OCI NFS solution supports both NFSv3 and NFSv4.   
 
-[Bare metal Standard (BM.Standard* )compute nodes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm#baremetalshapes__bm-standard) come with 2 physical NICs (2x25Gbps or 2x50Gbps). To get best performance,  network bandwidth of both NICs can be used by creating 2 private subnets.  One subnet (private-storage) is used for data transfer between NFS server and OCI Block Volumes (disks) and second subnet (private-fs) is used for data transfer between NFS clients and NFS server.   
+[Bare metal Standard (BM.Standard* )compute nodes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm#baremetalshapes__bm-standard) come with 2 physical NICs (2x50Gbps or 2x100Gbps or 2x200Gbps). To get best performance,  network bandwidth of both NICs can be used by creating 2 private subnets.  One subnet (private-storage) is used for data transfer between NFS server and OCI Block Volumes (disks) and second subnet (private-fs) is used for data transfer between NFS clients and NFS server. This solutions also works on BM with single physical NIC.
 
 HA Stonith Fencing:  We use SBD (Split Brain Detection) fencing agent to protect the cluster against split brain and data corruption. SBD fencing requires a shared disk (different from NFS data disks)  attached to both NFS server nodes.  The template provisions the fencing shared disk and configures it. 
 
@@ -14,11 +14,11 @@ Quorum Node:  Using just 2 nodes in production is not recommended, since it has 
 | Resource Type | Mandatory |         Resource Count         | Resource Details  |  Comments |
 | :---: | :---: | :---: | :--- | :--- | 
 | NFS Servers: Compute | Yes |  2   | BM.Standard4.Ax.120 (2 × 100 Gbps physical NICs). It is the newest current x86 bare-metal standard shape that retains two physical NICs. Current alternatives: BM.Standard3.64 or BM.Standard.E4.128 (2 × 50 Gbps). BM.Standard.E5.192 and BM.Standard.E6.256 provide 100/200 Gbps respectively, but each has one physical NIC. VMs are supported where bare-metal performance and physical NIC separation are not required; use VM.Standard.E6.Flex sized for workload.  | NFS HA cluster - min/max: 2.|
-| Quorum Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard2.1/2.2/.E2.1/.E2.2  |  | 
+| Quorum Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard.E5/E6.Flex,VM.Standard3 Flex  |  | 
 | Stonith SBD Fencing Disk: OCI Block Volumes (/dev/oracleoci/oraclevdb) | Yes |  1  | Shared Disk - Multi-attach Block Volume is attached to both NFS Server nodes.  |  |
 | Data Volumes:  OCI Block Volumes | Yes |  Max: 31  | HA solution: Shared Disk/Multi-attach Data Block Volume are attached to both NFS Server nodes.  Create a Volume Group of all Data Volumes and an LVM using the Volume Group with Striping.  Maximum LVM capacity: 31x32TB = 992TB.  Each Data Volume Capacity: min: 50GB, Max: 32TB. | NFS HA cluster - min:1 , max: 31.|
 | Client Node: Compute | No |  min:0  | Recommend provisioning 1 client node to test mounting of the filesystem.  For production, select compute shape based on performance requirements.  | |
-| Bastion Node: Compute | Yes |  1  | VM.Standard2.2 is the default shape for Bastion.  | |
+| Bastion Node: Compute | Yes |  1  | Compute shape with 1 or 2 Core (OCPU). VM.Standard.E5/E6.Flex,VM.Standard3 Flex  | |
 
 
 
@@ -73,7 +73,7 @@ If you plan to deploy in an **existing VCN & subnets**, then allow TCP & UDP tra
 ## Resource Manager Deployment
 This Quick Start uses [OCI Resource Manager](https://docs.cloud.oracle.com/iaas/Content/ResourceManager/Concepts/resourcemanager.htm) to make deployment easy, sign up for an [OCI account](https://cloud.oracle.com/en_US/tryit) if you don't have one, and just click the button below:
 
-[![Deploy to Oracle Cloud](https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg)](https://console.us-ashburn-1.oraclecloud.com/resourcemanager/stacks/create?region=home&zipUrl=https://github.com/oracle-quickstart/oci-nfs/raw/master/orm/dist/nfs.zip)
+[![Deploy to Oracle Cloud](https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg)](https://console.us-ashburn-1.oraclecloud.com/resourcemanager/stacks/create?region=home&zipUrl=https://github.com/oracle-quickstart/oci-nfs/archive/refs/heads/master.zip)
 
 
 ## Marketplace Deployment 
